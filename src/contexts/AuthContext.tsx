@@ -8,6 +8,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,6 +26,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
         setUser(session?.user ?? null);
+        
+        // Se o usuário acabou de confirmar o email, redirecionar para a página principal
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Limpar qualquer hash da URL após confirmação
+          if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }
       })();
     });
 
@@ -32,13 +41,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    // Configurar a URL de redirecionamento correta (localhost:5173 para desenvolvimento)
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        emailRedirectTo: redirectTo,
+      }
+    });
     if (error) throw error;
   };
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      // Traduzir mensagens de erro comuns
+      if (error.message.includes('Email not confirmed') || error.message.includes('email_not_confirmed')) {
+        throw new Error('E-mail não confirmado. Verifique sua caixa de entrada e clique no link de confirmação.');
+      }
+      throw error;
+    }
+  };
+
+  const resendConfirmationEmail = async (email: string) => {
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email,
+      options: {
+        emailRedirectTo: redirectTo,
+      }
+    });
+    if (error) {
+      // Se o erro for que o email já está confirmado, não é um erro crítico
+      if (error.message.includes('already confirmed')) {
+        throw new Error('Este e-mail já está confirmado. Tente fazer login.');
+      }
+      throw error;
+    }
   };
 
   const signOut = async () => {
@@ -47,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut, resendConfirmationEmail }}>
       {children}
     </AuthContext.Provider>
   );

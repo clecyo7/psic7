@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { HomePage } from './components/Home/HomePage';
 import { LoginForm } from './components/Auth/LoginForm';
@@ -25,11 +25,45 @@ function AppContent() {
   const [activeView, setActiveView] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
+
+  // Verificar se há hash na URL (callback do Supabase após confirmação de email)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      // Limpar o hash da URL
+      window.history.replaceState(null, '', window.location.pathname);
+      setEmailConfirmed(true);
+      // O Supabase processa automaticamente o token, então o usuário será autenticado
+      setTimeout(() => setEmailConfirmed(false), 5000);
+    }
+  }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-gray-600">Carregando...</div>
+      </div>
+    );
+  }
+
+  // Mostrar mensagem de sucesso se o email foi confirmado
+  if (emailConfirmed && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-green-600 text-3xl">✓</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Email Confirmado!</h2>
+          <p className="text-gray-600 mb-4">Sua conta foi confirmada com sucesso.</p>
+          <button
+            onClick={() => setEmailConfirmed(false)}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Continuar
+          </button>
+        </div>
       </div>
     );
   }
