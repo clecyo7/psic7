@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .fixed.inset-0 {
+    position: relative !important;
+    background: white !important;
+  }
+
+  .fixed.inset-0 > div,
+  .fixed.inset-0 > div * {
+    visibility: visible;
+  }
+
+  .fixed.inset-0 > div {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  @page {
+    margin: 2cm;
+  }
+}
