@@ -22,7 +22,15 @@ export function LoginForm() {
         await signIn(email, password);
       }
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro');
+      const errorMessage = err.message || 'Ocorreu um erro';
+
+      if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many')) {
+        setError('Muitas tentativas. Por favor, aguarde alguns minutos e tente novamente.');
+      } else if (errorMessage.includes('Email rate limit exceeded')) {
+        setError('Limite de tentativas excedido para este e-mail. Aguarde alguns minutos.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
