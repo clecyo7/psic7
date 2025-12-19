@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Users, DollarSign, FileText, TrendingUp } from 'lucide-react';
+import { AppointmentCalendar } from '../Calendar/AppointmentCalendar';
 
 interface DashboardStats {
   totalPatients: number;
@@ -131,6 +132,11 @@ export function DashboardView() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Calendário de Agendamentos */}
+      <div className="mt-6">
+        <AppointmentCalendar />
       </div>
     </div>
   );

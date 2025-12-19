@@ -3,6 +3,106 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { X } from 'lucide-react';
 
+// Função para gerar agendamentos automáticos
+const generateRecurringAppointments = async (
+  patientId: string,
+  professionalId: string,
+  frequency: 'semanal' | 'quinzenal',
+  dayOfWeek: number,
+  time: string,
+  serviceType: string,
+  numAppointments: number = 12 // Gerar 12 agendamentos por padrão
+) => {
+  const appointments = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Resetar horas para comparação
+  
+  // Encontrar o próximo dia da semana
+  const currentDay = today.getDay();
+  let daysUntilNext = (dayOfWeek - currentDay + 7) % 7;
+  
+  // Se hoje é o dia, verificar se já passou do horário
+  if (daysUntilNext === 0) {
+    const [hours, minutes] = time.split(':').map(Number);
+    const currentTime = new Date().getHours() * 60 + new Date().getMinutes();
+    const appointmentTime = hours * 60 + minutes;
+    
+    if (currentTime >= appointmentTime) {
+      // Já passou do horário, agendar para a próxima semana/quinzena
+      daysUntilNext = frequency === 'semanal' ? 7 : 14;
+    }
+  }
+  
+  // Se não encontrou um dia válido, usar o próximo intervalo
+  if (daysUntilNext === 0) {
+    daysUntilNext = frequency === 'semanal' ? 7 : 14;
+  }
+  
+  // Calcular a primeira data de agendamento
+  const firstDate = new Date(today);
+  firstDate.setDate(today.getDate() + daysUntilNext);
+  const [hours, minutes] = time.split(':').map(Number);
+  firstDate.setHours(hours, minutes, 0, 0);
+  
+  const intervalDays = frequency === 'semanal' ? 7 : 14;
+  
+  // Gerar os agendamentos (inicialmente inativos - serão ativados em D-1)
+  for (let i = 0; i < numAppointments; i++) {
+    const appointmentDate = new Date(firstDate);
+    appointmentDate.setDate(firstDate.getDate() + (i * intervalDays));
+    
+    // Calcular data de expiração: 2 horas antes do agendamento
+    const expiresAt = new Date(appointmentDate);
+    expiresAt.setHours(expiresAt.getHours() - 2);
+    
+    appointments.push({
+      patient_id: patientId,
+      professional_id: professionalId,
+      appointment_date: appointmentDate.toISOString(),
+      service_type: serviceType,
+      status: 'pending_confirmation',
+      is_active: false, // Inativo até ser ativado em D-1
+      expires_at: expiresAt.toISOString(),
+      notification_sent: false,
+      notes: `Agendamento automático - ${frequency === 'semanal' ? 'Semanal' : 'Quinzenal'}`,
+    });
+  }
+  
+  // Inserir agendamentos um por um para garantir que todos sejam inseridos
+  // e identificar quais falham (se houver)
+  if (appointments.length > 0) {
+    let successCount = 0;
+    let failedCount = 0;
+    
+    for (let i = 0; i < appointments.length; i++) {
+      const appointment = appointments[i];
+      try {
+        const { error } = await supabase
+          .from('appointments')
+          .insert([appointment]);
+        
+        if (error) {
+          failedCount++;
+        } else {
+          successCount++;
+        }
+      } catch (err) {
+        failedCount++;
+      }
+    }
+    
+    if (failedCount > 0) {
+      console.error(`Atenção: ${failedCount} agendamento(s) não puderam ser inseridos de ${appointments.length} total`);
+    }
+    
+    // Não criar confirmações ainda - serão criadas quando os agendamentos forem ativados em D-1
+    // As confirmações serão criadas pela rotina diária quando is_active = true
+    return successCount;
+  }
+  
+  return 0;
+};
+
 interface PatientFormProps {
   patientId?: string;
   onClose: () => void;
@@ -25,6 +125,10 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
     responsible_name: '',
     responsible_document: '',
     responsible_phone: '',
+    appointment_frequency: '' as 'semanal' | 'quinzenal' | '',
+    appointment_day_of_week: '',
+    appointment_time: '',
+    appointment_count: '12', // Quantidade de agendamentos a gerar
   });
 
   useEffect(() => {
@@ -34,7 +138,9 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
   }, [patientId]);
 
   const loadPatient = async () => {
-    const { data, error } = await supabase
+    if (!patientId) return;
+    
+    const { data } = await supabase
       .from('patients')
       .select('*')
       .eq('id', patientId)
@@ -54,6 +160,10 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
         responsible_name: data.responsible_name || '',
         responsible_document: data.responsible_document || '',
         responsible_phone: data.responsible_phone || '',
+        appointment_frequency: data.appointment_frequency || '',
+        appointment_day_of_week: data.appointment_day_of_week?.toString() || '',
+        appointment_time: data.appointment_time || '',
+        appointment_count: '12', // Sempre começar com 12 ao editar
       });
     }
   };
@@ -63,19 +173,86 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
     setLoading(true);
 
     try {
+      let savedPatientId = patientId;
+      
+      if (!user?.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Preparar dados para salvar (converter tipos)
+      // Excluir appointment_count pois não é uma coluna do banco, apenas configuração temporária
+      const { appointment_count, ...formDataWithoutCount } = formData;
+      const patientData: any = {
+        ...formDataWithoutCount,
+        user_id: user.id, // Sempre definir user_id para passar na política RLS
+        appointment_day_of_week: formData.appointment_day_of_week ? parseInt(formData.appointment_day_of_week) : null,
+        appointment_frequency: formData.appointment_frequency || null,
+        appointment_time: formData.appointment_time || null,
+      };
+
       if (patientId) {
         const { error } = await supabase
           .from('patients')
-          .update({ ...formData, updated_at: new Date().toISOString() })
+          .update({ ...patientData, updated_at: new Date().toISOString() })
           .eq('id', patientId);
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('patients')
-          .insert([formData]);
+          .insert([patientData])
+          .select('id')
+          .single();
 
         if (error) throw error;
+        if (!data?.id) throw new Error('Erro ao salvar paciente: ID não retornado');
+        savedPatientId = data.id;
+      }
+
+      // Garantir que savedPatientId está definido
+      if (!savedPatientId) {
+        throw new Error('ID do paciente não disponível');
+      }
+
+      // Gerar agendamentos automáticos se frequência estiver configurada
+      if (formData.appointment_frequency && 
+          formData.appointment_day_of_week && 
+          formData.appointment_time && 
+          user) {
+        const dayOfWeek = parseInt(formData.appointment_day_of_week);
+        if (isNaN(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+          throw new Error('Dia da semana inválido');
+        }
+
+        // Type guards - já verificados no if acima
+        const appointmentTime: string = formData.appointment_time!;
+        const appointmentFrequency: 'semanal' | 'quinzenal' = formData.appointment_frequency!;
+
+        // Verificar se já existem agendamentos futuros para este paciente
+        const { data: existingAppointments } = await supabase
+          .from('appointments')
+          .select('id')
+          .eq('patient_id', savedPatientId)
+          .eq('status', 'pending_confirmation')
+          .gte('appointment_date', new Date().toISOString())
+          .limit(1);
+
+        // Só gerar se não houver agendamentos futuros pendentes
+        if (!existingAppointments || existingAppointments.length === 0) {
+          const numAppointments = parseInt(formData.appointment_count || '12');
+          const validCount = isNaN(numAppointments) || numAppointments < 1 ? 12 : Math.min(numAppointments, 52);
+          const serviceType = formData.service_type === 'ambos' ? 'presencial' : (formData.service_type || 'presencial');
+          
+          await generateRecurringAppointments(
+            savedPatientId,
+            user.id,
+            appointmentFrequency,
+            dayOfWeek,
+            appointmentTime,
+            serviceType,
+            validCount
+          );
+        }
       }
 
       onSave();
@@ -236,6 +413,89 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Ex: 150.00"
             />
+          </div>
+
+          <div className="pt-4 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Agendamento Recorrente (Opcional)
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Configure agendamentos automáticos para este paciente. O sistema gerará automaticamente os próximos agendamentos baseado na frequência escolhida.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Frequência da Consulta
+                </label>
+                <select
+                  value={formData.appointment_frequency}
+                  onChange={(e) => setFormData({ ...formData, appointment_frequency: e.target.value as 'semanal' | 'quinzenal' | '' })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Não configurar agendamento recorrente</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="quinzenal">Quinzenal</option>
+                </select>
+              </div>
+
+              {formData.appointment_frequency && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dia da Semana
+                    </label>
+                    <select
+                      value={formData.appointment_day_of_week}
+                      onChange={(e) => setFormData({ ...formData, appointment_day_of_week: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={!!formData.appointment_frequency}
+                    >
+                      <option value="">Selecione o dia...</option>
+                      <option value="0">Domingo</option>
+                      <option value="1">Segunda-feira</option>
+                      <option value="2">Terça-feira</option>
+                      <option value="3">Quarta-feira</option>
+                      <option value="4">Quinta-feira</option>
+                      <option value="5">Sexta-feira</option>
+                      <option value="6">Sábado</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Horário Fixo
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.appointment_time}
+                      onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={!!formData.appointment_frequency}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantidade de Agendamentos
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="52"
+                      value={formData.appointment_count}
+                      onChange={(e) => setFormData({ ...formData, appointment_count: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={!!formData.appointment_frequency}
+                      placeholder="12"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Quantos agendamentos você deseja criar? (1 a 52)
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="pt-4 border-t border-gray-200">

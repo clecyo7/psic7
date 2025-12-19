@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, Edit, Trash2, CheckCircle, XCircle, MessageSquare } from 'lucide-react';
+import { Calendar, Edit, CheckCircle, XCircle } from 'lucide-react';
 import { AppointmentForm } from './AppointmentForm';
 
 interface Appointment {
@@ -32,6 +32,7 @@ export function AppointmentList() {
 
   const loadAppointments = async () => {
     try {
+      // Carregar apenas agendamentos ativos ou futuros
       const { data, error } = await supabase
         .from('appointments')
         .select(`
@@ -39,6 +40,7 @@ export function AppointmentList() {
           patient:patients(id, name)
         `)
         .eq('professional_id', user?.id)
+        .or('is_active.eq.true,appointment_date.gte.' + new Date().toISOString())
         .order('appointment_date', { ascending: false });
 
       if (error) throw error;
@@ -111,7 +113,7 @@ export function AppointmentList() {
 
   const handleComplete = async (appointmentId: string) => {
     try {
-      const { data: appointment } = await supabase
+      const { data: appointment, error: fetchError } = await supabase
         .from('appointments')
         .select(`
           patient_id,
@@ -121,6 +123,9 @@ export function AppointmentList() {
         `)
         .eq('id', appointmentId)
         .single();
+
+      if (fetchError) throw fetchError;
+      if (!appointment) throw new Error('Agendamento não encontrado');
 
       const { error: appointmentError } = await supabase
         .from('appointments')
@@ -140,13 +145,14 @@ export function AppointmentList() {
 
       if (recordError) throw recordError;
 
-      const patientPrice = appointment.patient.consultation_price;
+      const patient = Array.isArray(appointment.patient) ? appointment.patient[0] : appointment.patient;
+      const patientPrice = patient?.consultation_price;
       if (patientPrice && patientPrice > 0) {
         const appointmentDate = new Date(appointment.appointment_date);
         const dueDate = new Date(appointmentDate);
         dueDate.setDate(dueDate.getDate() + 7);
 
-        const description = `Consulta ${appointment.service_type} - ${appointment.patient.name} - ${appointmentDate.toLocaleDateString('pt-BR')}`;
+        const description = `Consulta ${appointment.service_type} - ${patient?.name || 'Paciente'} - ${appointmentDate.toLocaleDateString('pt-BR')}`;
 
         const { error: transactionError } = await supabase
           .from('financial_transactions')
@@ -182,7 +188,7 @@ export function AppointmentList() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending_confirmation': return 'Aguardando Confirmação';
+      case 'pending_confirmation': return 'Pré-Agendamento';
       case 'confirmed': return 'Confirmado';
       case 'completed': return 'Concluído';
       case 'cancelled': return 'Cancelado';

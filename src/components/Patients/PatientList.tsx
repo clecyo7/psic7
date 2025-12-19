@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { UserPlus, Edit, Calendar } from 'lucide-react';
+import { UserPlus, Edit, Calendar, Eye, X } from 'lucide-react';
 import { PatientForm } from './PatientForm';
 
 interface Patient {
@@ -13,12 +13,21 @@ interface Patient {
   service_type: string;
 }
 
+interface PatientAppointment {
+  id: string;
+  appointment_date: string;
+  status: string;
+  service_type: string;
+}
+
 export function PatientList() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingPatient, setEditingPatient] = useState<string | undefined>();
+  const [viewingAppointments, setViewingAppointments] = useState<string | null>(null);
+  const [patientAppointments, setPatientAppointments] = useState<PatientAppointment[]>([]);
 
   useEffect(() => {
     loadPatients();
@@ -52,6 +61,44 @@ export function PatientList() {
 
   const handleSave = () => {
     loadPatients();
+  };
+
+  const handleViewAppointments = async (patientId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id, appointment_date, status, service_type')
+        .eq('patient_id', patientId)
+        .eq('professional_id', user?.id)
+        .gte('appointment_date', new Date().toISOString())
+        .order('appointment_date', { ascending: true });
+
+      if (error) throw error;
+      setPatientAppointments(data || []);
+      setViewingAppointments(patientId);
+    } catch (error: any) {
+      alert(error.message);
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending_confirmation': return 'Pré-Agendamento';
+      case 'confirmed': return 'Confirmado';
+      case 'completed': return 'Concluído';
+      case 'cancelled': return 'Cancelado';
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending_confirmation': return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   if (loading) {
@@ -96,13 +143,23 @@ export function PatientList() {
                   <h3 className="text-base sm:text-lg font-bold text-gray-800 truncate">{patient.name}</h3>
                   <p className="text-xs sm:text-sm text-gray-600 truncate">{patient.email}</p>
                 </div>
-                <button
-                  onClick={() => handleEdit(patient.id)}
-                  className="text-blue-600 hover:text-blue-700 transition flex-shrink-0 p-1"
-                  aria-label="Editar paciente"
-                >
-                  <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleViewAppointments(patient.id)}
+                    className="text-green-600 hover:text-green-700 transition flex-shrink-0 p-1"
+                    aria-label="Ver agendamentos"
+                    title="Ver agendamentos futuros"
+                  >
+                    <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleEdit(patient.id)}
+                    className="text-blue-600 hover:text-blue-700 transition flex-shrink-0 p-1"
+                    aria-label="Editar paciente"
+                  >
+                    <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between gap-2">
@@ -131,6 +188,69 @@ export function PatientList() {
           onClose={handleCloseForm}
           onSave={handleSave}
         />
+      )}
+
+      {viewingAppointments && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Agendamentos Futuros</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {patients.find(p => p.id === viewingAppointments)?.name}
+                </p>
+              </div>
+              <button
+                onClick={() => setViewingAppointments(null)}
+                className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              {patientAppointments.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600">Nenhum agendamento futuro encontrado</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {patientAppointments.map((appointment) => (
+                    <div
+                      key={appointment.id}
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800">
+                            {new Date(appointment.appointment_date).toLocaleString('pt-BR', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
+                              {getStatusText(appointment.status)}
+                            </span>
+                            <span className="text-xs text-gray-600 capitalize">
+                              {appointment.service_type}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

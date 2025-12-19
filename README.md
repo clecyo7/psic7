@@ -52,18 +52,16 @@ A aplicação estará disponível em `http://localhost:5173`
 
 1. Acesse: https://supabase.com/dashboard → Seu Projeto → **SQL Editor**
 2. Clique em **New query**
-3. Abra o arquivo `supabase/migrations/00_complete_schema.sql`
+3. Abra o arquivo `supabase/migrations/999_RESET_COMPLETO.sql`
 4. **Copie TODO o conteúdo** e cole no SQL Editor
 5. Clique em **Run** (ou `Ctrl+Enter` / `Cmd+Enter`)
 
 **Se você ver o erro:** `Could not find the table 'public.patients'`  
 **Significa que as tabelas ainda não foram criadas!** Execute o SQL acima.
 
-Veja instruções detalhadas em: **`CRIAR_TABELAS.md`**
-
 ## 📚 Documentação Adicional
 
-- **`CRIAR_TABELAS.md`** ⚠️ - **LEIA PRIMEIRO** - Como criar as tabelas no Supabase
+- **`ROTINA_DIARIA_AGENDAMENTOS.md`** - Como configurar rotina diária de agendamentos
 - **`CUSTOS_E_ALTERNATIVAS.md`** 💰 - Análise de custos e alternativas
 - `SUPABASE_SETUP.md` - Configuração do Supabase
 - `DESABILITAR_CONFIRMACAO_EMAIL.md` - Como desabilitar confirmação de email
