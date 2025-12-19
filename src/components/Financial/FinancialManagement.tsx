@@ -162,92 +162,92 @@ export function FinancialManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Financeiro</h1>
-        <p className="text-gray-600 mt-1">Controle financeiro do consultório</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Financeiro</h1>
+        <p className="text-sm sm:text-base text-gray-600 mt-1">Controle financeiro do consultório</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-md p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">A Receber</p>
-              <p className="text-3xl font-bold text-orange-600 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">A Receber</p>
+              <p className="text-2xl sm:text-3xl font-bold text-orange-600 mt-2 break-words">
                 R$ {totalPending.toFixed(2)}
               </p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
                 {transactions.filter(t => t.status === 'pending').length} transação(ões)
               </p>
             </div>
-            <div className="bg-orange-100 p-3 rounded-lg">
-              <DollarSign className="w-8 h-8 text-orange-600" />
+            <div className="bg-orange-100 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+              <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Recebido</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Recebido</p>
+              <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-2 break-words">
                 R$ {totalReceived.toFixed(2)}
               </p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
                 {transactions.filter(t => t.status === 'received').length} transação(ões)
               </p>
             </div>
-            <div className="bg-green-100 p-3 rounded-lg">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+            <div className="bg-green-100 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
             </div>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800">Contas a Receber</h2>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800">Contas a Receber</h2>
         </div>
 
         {transactions.length === 0 ? (
-          <div className="p-12 text-center">
-            <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Nenhuma transação</h3>
-            <p className="text-gray-600">As transações aparecerão aqui após concluir atendimentos</p>
+          <div className="p-8 sm:p-12 text-center">
+            <DollarSign className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhuma transação</h3>
+            <p className="text-sm sm:text-base text-gray-600">As transações aparecerão aqui após concluir atendimentos</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
             {transactions.map((transaction) => (
-              <div key={transaction.id} className="p-6 hover:bg-gray-50 transition">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-gray-800">
+              <div key={transaction.id} className="p-4 sm:p-6 hover:bg-gray-50 transition">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                  <div className="flex-1 w-full sm:w-auto">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-800">
                         {transaction.patient.name}
                       </h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
+                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium w-fit ${getStatusColor(transaction.status)}`}>
                         {getStatusText(transaction.status)}
                       </span>
                     </div>
                     {transaction.description && (
-                      <p className="text-sm text-gray-600 mb-2">{transaction.description}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-2 break-words">{transaction.description}</p>
                     )}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
                       <div>
-                        <span className="text-gray-600">Valor:</span>
+                        <span className="text-gray-600 block mb-1">Valor:</span>
                         <p className="font-bold text-gray-800">
                           R$ {parseFloat(transaction.amount.toString()).toFixed(2)}
                         </p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Vencimento:</span>
+                        <span className="text-gray-600 block mb-1">Vencimento:</span>
                         <p className="font-medium text-gray-800">
                           {new Date(transaction.due_date).toLocaleDateString('pt-BR')}
                         </p>
                       </div>
                       {transaction.paid_date && (
                         <div>
-                          <span className="text-gray-600">Pago em:</span>
+                          <span className="text-gray-600 block mb-1">Pago em:</span>
                           <p className="font-medium text-gray-800">
                             {new Date(transaction.paid_date).toLocaleDateString('pt-BR')}
                           </p>
@@ -255,7 +255,7 @@ export function FinancialManagement() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
                     {transaction.status === 'pending' && (
                       <>
                         <button
@@ -299,19 +299,20 @@ export function FinancialManagement() {
       </div>
 
       {editingTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-800">Editar Transação</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[95vh] my-4 overflow-y-auto">
+            <div className="sticky top-0 bg-white px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between z-10">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">Editar Transação</h2>
               <button
                 onClick={() => setEditingTransaction(null)}
-                className="text-gray-400 hover:text-gray-600 transition"
+                className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                aria-label="Fechar"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Paciente
@@ -368,16 +369,16 @@ export function FinancialManagement() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
                 <button
                   onClick={() => setEditingTransaction(null)}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="px-4 sm:px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm sm:text-base order-2 sm:order-1"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSaveEdit}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm sm:text-base order-1 sm:order-2"
                 >
                   Salvar
                 </button>

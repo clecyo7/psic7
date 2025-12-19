@@ -39,6 +39,16 @@ function AppContent() {
     }
   }, []);
 
+  // Verificar se a rota é /acesso para mostrar o login diretamente
+  useEffect(() => {
+    if (window.location.pathname === '/acesso') {
+      setShowLogin(true);
+    } else if (window.location.pathname !== '/' && !user) {
+      // Se estiver em outra rota sem estar logado, redirecionar para home
+      window.history.replaceState(null, '', '/');
+    }
+  }, [user]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -69,7 +79,7 @@ function AppContent() {
   }
 
   if (!user) {
-    if (showLogin) {
+    if (showLogin || window.location.pathname === '/acesso') {
       return <LoginForm />;
     }
     return <HomePage onLoginClick={() => setShowLogin(true)} />;
@@ -105,12 +115,13 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 px-4 py-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">Sistema de Gestão</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-800">Sistema de Gestão</h1>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Toggle menu"
           >
             {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -118,16 +129,16 @@ function AppContent() {
       </div>
 
       <aside
-        className={`fixed top-0 left-0 h-full bg-white border-r border-gray-200 transition-transform duration-300 z-50 ${
+        className={`fixed top-0 left-0 h-full bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out z-50 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 w-64`}
+        } lg:translate-x-0 w-64 lg:w-64`}
       >
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-800">Consultório</h1>
-          <p className="text-sm text-gray-600 mt-1">Sistema de Gestão</p>
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Psi Cloud</h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">Sistema de Gestão</p>
         </div>
 
-        <nav className="p-4 space-y-2">
+        <nav className="p-3 sm:p-4 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
@@ -139,25 +150,25 @@ function AppContent() {
                   setActiveView(item.id);
                   setSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition text-sm sm:text-base ${
                   isActive
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium">{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 border-t border-gray-200 bg-white">
           <button
             onClick={signOut}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition"
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-red-600 hover:bg-red-50 transition text-sm sm:text-base"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium">Sair</span>
           </button>
         </div>
@@ -170,7 +181,7 @@ function AppContent() {
         />
       )}
 
-      <main className="lg:ml-64 pt-16 lg:pt-0 p-4 lg:p-8">
+      <main className="lg:ml-64 pt-14 sm:pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 xl:p-8">
         {renderView()}
       </main>
     </div>

@@ -97,68 +97,68 @@ export function ReportsView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Relatórios</h1>
-        <p className="text-gray-600 mt-1">Análise detalhada do consultório</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Relatórios</h1>
+        <p className="text-sm sm:text-base text-gray-600 mt-1">Análise detalhada do consultório</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-md p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total de Pacientes</p>
-              <p className="text-3xl font-bold text-gray-800 mt-2">{reportData.totalPatients}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total de Pacientes</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 break-words">{reportData.totalPatients}</p>
             </div>
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="bg-blue-100 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total de Agendamentos</p>
-              <p className="text-3xl font-bold text-gray-800 mt-2">{reportData.totalAppointments}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total de Agendamentos</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 break-words">{reportData.totalAppointments}</p>
             </div>
-            <div className="bg-green-100 p-3 rounded-lg">
-              <Calendar className="w-6 h-6 text-green-600" />
+            <div className="bg-green-100 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Atendimentos Concluídos</p>
-              <p className="text-3xl font-bold text-gray-800 mt-2">{reportData.completedAppointments}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Atendimentos Concluídos</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 break-words">{reportData.completedAppointments}</p>
             </div>
-            <div className="bg-emerald-100 p-3 rounded-lg">
-              <FileText className="w-6 h-6 text-emerald-600" />
+            <div className="bg-emerald-100 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Receita Total</p>
-              <p className="text-3xl font-bold text-gray-800 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Receita Total</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 break-words">
                 R$ {reportData.totalRevenue.toFixed(2)}
               </p>
             </div>
-            <div className="bg-purple-100 p-3 rounded-lg">
-              <DollarSign className="w-6 h-6 text-purple-600" />
+            <div className="bg-purple-100 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
             Agendamentos por Mês
           </h2>
           <div className="space-y-3">
@@ -180,9 +180,9 @@ export function ReportsView() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />
             Receita por Mês
           </h2>
           <div className="space-y-3">
@@ -205,9 +205,9 @@ export function ReportsView() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Resumo Geral</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Resumo Geral</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <h3 className="font-semibold text-gray-700 mb-3">Estatísticas de Agendamentos</h3>
             <div className="space-y-2">

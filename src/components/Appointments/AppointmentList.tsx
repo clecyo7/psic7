@@ -199,64 +199,64 @@ export function AppointmentList() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Agendamentos</h1>
-          <p className="text-gray-600 mt-1">Gerencie seus agendamentos</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Agendamentos</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Gerencie seus agendamentos</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 transition text-sm sm:text-base w-full sm:w-auto justify-center"
         >
-          <Calendar className="w-5 h-5" />
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
           Novo Agendamento
         </button>
       </div>
 
       {appointments.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-md p-12 text-center">
-          <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">Nenhum agendamento</h3>
-          <p className="text-gray-600">Comece criando um novo agendamento</p>
+        <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
+          <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhum agendamento</h3>
+          <p className="text-sm sm:text-base text-gray-600">Comece criando um novo agendamento</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {appointments.map((appointment) => (
             <div
               key={appointment.id}
-              className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition"
+              className="bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-bold text-gray-800">
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                <div className="flex-1 w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-800">
                       {appointment.patient.name}
                     </h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
+                    <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium w-fit ${getStatusColor(appointment.status)}`}>
                       {getStatusText(appointment.status)}
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
                     <div>
-                      <span className="text-gray-600">Data e Hora:</span>
+                      <span className="text-gray-600 block mb-1">Data e Hora:</span>
                       <p className="font-medium text-gray-800">
                         {new Date(appointment.appointment_date).toLocaleString('pt-BR')}
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Tipo:</span>
+                      <span className="text-gray-600 block mb-1">Tipo:</span>
                       <p className="font-medium text-gray-800 capitalize">{appointment.service_type}</p>
                     </div>
                     {appointment.notes && (
-                      <div>
-                        <span className="text-gray-600">Observações:</span>
-                        <p className="font-medium text-gray-800">{appointment.notes}</p>
+                      <div className="sm:col-span-2 lg:col-span-1">
+                        <span className="text-gray-600 block mb-1">Observações:</span>
+                        <p className="font-medium text-gray-800 break-words">{appointment.notes}</p>
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
                   {appointment.status === 'pending_confirmation' && (
                     <button
                       onClick={() => handleConfirm(appointment.id)}

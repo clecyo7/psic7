@@ -74,17 +74,17 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-center mb-8">
           <div className="bg-blue-600 p-3 rounded-full">
             <LogIn className="w-8 h-8 text-white" />
           </div>
         </div>
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">
+        <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-2">
           {isSignUp ? 'Criar Conta' : 'Entrar'}
         </h2>
-        <p className="text-center text-gray-600 mb-8">
+        <p className="text-center text-sm sm:text-base text-gray-600 mb-6 sm:mb-8">
           Sistema de Gestão de Consultório
         </p>
 

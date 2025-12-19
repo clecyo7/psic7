@@ -182,37 +182,37 @@ export function MedicalRecordsList() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Prontuários</h1>
-          <p className="text-gray-600 mt-1">Evolução e histórico dos pacientes</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Prontuários</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Evolução e histórico dos pacientes</p>
         </div>
       </div>
 
       {records.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-md p-12 text-center">
-          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">Nenhum prontuário</h3>
-          <p className="text-gray-600">Conclua atendimentos para criar prontuários</p>
+        <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
+          <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhum prontuário</h3>
+          <p className="text-sm sm:text-base text-gray-600">Conclua atendimentos para criar prontuários</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {records.map((record) => (
             <div
               key={record.id}
-              className={`bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition border-2 ${getStatusColor(record)}`}
+              className={`bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition border-2 ${getStatusColor(record)}`}
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-bold text-gray-800">{record.patient.name}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusBadgeColor(record)}`}>
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0 mb-3">
+                <div className="flex-1 w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-800">{record.patient.name}</h3>
+                    <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getStatusBadgeColor(record)}`}>
                       {record.signed && <CheckCircle2 className="w-3 h-3" />}
                       {getStatusText(record)}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-600 space-y-1">
+                  <div className="text-xs sm:text-sm text-gray-600 space-y-1">
                     <p>
                       <strong>Data da Consulta:</strong>{' '}
                       {record.appointment
@@ -231,28 +231,30 @@ export function MedicalRecordsList() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
                   <button
                     onClick={() => handleViewConsolidated(record.patient.id)}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                     title="Ver Prontuário Consolidado"
+                    aria-label="Ver Prontuário Consolidado"
                   >
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   {!record.signed && (
                     <button
                       onClick={() => handleEdit(record)}
                       className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
                       title="Editar Prontuário"
+                      aria-label="Editar Prontuário"
                     >
-                      <Edit className="w-5 h-5" />
+                      <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   )}
                 </div>
               </div>
               {record.content.trim() !== '' && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-700 whitespace-pre-wrap">{record.content}</p>
+                <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gray-50 rounded-lg">
+                  <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap break-words">{record.content}</p>
                   {record.signed && record.professional_name && (
                     <div className="mt-4 pt-4 border-t border-gray-300">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -278,14 +280,14 @@ export function MedicalRecordsList() {
       )}
 
       {editingRecord && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full">
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-xl">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[95vh] my-4 overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-xl z-10">
+              <div className="flex-1 min-w-0 pr-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
                   {editContent.trim() === '' ? 'Preencher Prontuário' : 'Editar Prontuário'}
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
                   {editingRecord.patient.name} - {' '}
                   {editingRecord.appointment
                     ? new Date(editingRecord.appointment.appointment_date).toLocaleDateString('pt-BR')
@@ -294,21 +296,22 @@ export function MedicalRecordsList() {
               </div>
               <button
                 onClick={() => setEditingRecord(null)}
-                className="text-gray-400 hover:text-gray-600 transition"
+                className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                aria-label="Fechar"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Evolução do Paciente
               </label>
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                rows={12}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={10}
+                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                 placeholder="Descreva a evolução do paciente, diagnóstico, tratamento, observações..."
               />
 
@@ -356,7 +359,7 @@ export function MedicalRecordsList() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4 sm:mt-6">
                 <button
                   onClick={() => {
                     setEditingRecord(null);
@@ -364,13 +367,13 @@ export function MedicalRecordsList() {
                     setProfessionalName('');
                     setProfessionalRegistration('');
                   }}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="px-4 sm:px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm sm:text-base order-2 sm:order-1"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+                  className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 text-sm sm:text-base order-1 sm:order-2"
                 >
                   {signRecord && <PenTool className="w-4 h-4" />}
                   {signRecord ? 'Salvar e Assinar' : 'Salvar'}
@@ -382,34 +385,35 @@ export function MedicalRecordsList() {
       )}
 
       {viewingConsolidated && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">Prontuário Consolidado</h2>
-                  <p className="text-sm text-gray-600 mt-1">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] my-4 overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 z-10">
+              <div className="flex items-start justify-between mb-3 gap-2">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Prontuário Consolidado</h2>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
                     {consolidatedRecords[0]?.patient.name} - Histórico Completo
                   </p>
                 </div>
                 <button
                   onClick={() => setViewingConsolidated(null)}
-                  className="text-gray-400 hover:text-gray-600 transition"
+                  className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                  aria-label="Fechar"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </div>
-              <div className="flex gap-2 print:hidden">
+              <div className="flex flex-col sm:flex-row gap-2 print:hidden">
                 <button
                   onClick={handleGeneratePDF}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                  className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-xs sm:text-sm"
                 >
                   <FileDown className="w-4 h-4" />
                   Gerar PDF
                 </button>
                 <button
                   onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm"
+                  className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-xs sm:text-sm"
                 >
                   <Printer className="w-4 h-4" />
                   Imprimir
@@ -417,11 +421,11 @@ export function MedicalRecordsList() {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {consolidatedRecords.length === 0 ? (
-                <p className="text-center text-gray-600 py-8">Nenhum prontuário encontrado</p>
+                <p className="text-center text-sm sm:text-base text-gray-600 py-8">Nenhum prontuário encontrado</p>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {consolidatedRecords.map((record, index) => (
                     <div key={record.id} className="border-l-4 border-blue-500 pl-4">
                       <div className="flex items-start justify-between mb-2">
