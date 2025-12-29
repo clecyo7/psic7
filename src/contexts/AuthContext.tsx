@@ -122,8 +122,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      // Verificar se há sessão antes de tentar fazer logout
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Só tenta fazer logout se houver sessão
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          // Se o erro for de sessão faltando, apenas limpar o estado local
+          if (error.message.includes('session') || error.message.includes('Auth session missing')) {
+            console.warn('Sessão já não existe, limpando estado local');
+            setUser(null);
+            return;
+          }
+          throw error;
+        }
+      } else {
+        // Se não há sessão, apenas limpar o estado local
+        setUser(null);
+      }
+    } catch (error: any) {
+      // Se der erro, tentar limpar o estado local mesmo assim
+      console.error('Erro ao fazer logout:', error);
+      setUser(null);
+      
+      // Se não for erro de sessão faltando, relançar o erro
+      if (!error?.message?.includes('session') && !error?.message?.includes('Auth session missing')) {
+        throw error;
+      }
+    }
   };
 
   return (

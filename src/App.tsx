@@ -24,7 +24,9 @@ import {
   X,
   UserCheck,
   Shield,
+  Settings,
 } from 'lucide-react';
+import { ProfileSettings } from './components/Profile/ProfileSettings';
 
 function AppContent() {
   const { user, signOut, loading } = useAuth();
@@ -33,6 +35,7 @@ function AppContent() {
   const [showLogin, setShowLogin] = useState(false);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
 
   // Verificar se há hash na URL (callback do Supabase após confirmação de email)
   useEffect(() => {
@@ -219,7 +222,17 @@ function AppContent() {
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 border-t border-gray-200 bg-white">
+        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 border-t border-gray-200 bg-white space-y-2">
+          <button
+            onClick={() => {
+              setShowProfileSettings(true);
+              setSidebarOpen(false);
+            }}
+            className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition text-sm sm:text-base"
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium">Alterar Senha</span>
+          </button>
           <button
             onClick={signOut}
             className="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-red-600 hover:bg-red-50 transition text-sm sm:text-base"
@@ -240,6 +253,10 @@ function AppContent() {
       <main className="lg:ml-64 pt-14 sm:pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 xl:p-8">
         {renderView()}
       </main>
+
+      {showProfileSettings && (
+        <ProfileSettings onClose={() => setShowProfileSettings(false)} />
+      )}
     </div>
   );
 }

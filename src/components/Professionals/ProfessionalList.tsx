@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { ProfessionalForm } from './ProfessionalForm';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 
@@ -15,15 +17,25 @@ interface Professional {
 }
 
 export function ProfessionalList() {
+  const { user } = useAuth();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingProfessionalId, setEditingProfessionalId] = useState<string | undefined>();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    checkAdminStatus();
     loadProfessionals();
-  }, []);
+  }, [user]);
+
+  const checkAdminStatus = async () => {
+    if (user) {
+      const admin = await isSuperAdmin(user.id);
+      setIsAdmin(admin);
+    }
+  };
 
   const loadProfessionals = async () => {
     try {
@@ -84,13 +96,15 @@ export function ProfessionalList() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Profissionais</h1>
           <p className="text-gray-600 mt-1">Gerencie os profissionais do consultório</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Novo Profissional</span>
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Novo Profissional</span>
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -145,22 +159,24 @@ export function ProfessionalList() {
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(professional.id)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                          title="Editar"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(professional.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                          title="Excluir"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(professional.id)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            title="Editar"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(professional.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

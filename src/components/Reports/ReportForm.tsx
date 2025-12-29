@@ -29,23 +29,53 @@ export function ReportForm({ reportId, onClose, onSave }: ReportFormProps) {
   });
 
   useEffect(() => {
-    loadPatients();
-    if (reportId) {
-      loadReport();
+    if (user) {
+      loadPatients();
+      if (reportId) {
+        loadReport();
+      }
     }
   }, [reportId, user]);
 
   const loadPatients = async () => {
+    if (!user) return;
+    
     try {
-      const { data, error } = await supabase
+      // Verificar se é super admin
+      const userIsSuperAdmin = await isSuperAdmin(user.id);
+      
+      let query = supabase
         .from('patients')
-        .select('id, name, professional_id')
-        .order('name');
+        .select('id, name, professional_id');
+
+      // Se não for super admin, filtrar apenas pacientes vinculados ao profissional
+      if (!userIsSuperAdmin) {
+        // Buscar o professional_id do usuário logado
+        const { data: professional, error: profError } = await supabase
+          .from('professionals')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .single();
+
+        if (profError || !professional) {
+          // Se não encontrou profissional, não mostrar nenhum paciente
+          console.warn('Profissional não encontrado para o usuário:', user.id);
+          setPatients([]);
+          return;
+        }
+
+        query = query.eq('professional_id', professional.id);
+      }
+
+      const { data, error } = await query.order('name');
 
       if (error) throw error;
       setPatients(data || []);
     } catch (error: any) {
+      console.error('Erro ao carregar pacientes:', error);
       alert('Erro ao carregar pacientes: ' + error.message);
+      setPatients([]);
     }
   };
 

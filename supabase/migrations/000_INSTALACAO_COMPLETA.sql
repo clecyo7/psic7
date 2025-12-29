@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS patients (
   appointment_frequency text CHECK (appointment_frequency IN ('semanal', 'quinzenal', NULL)),
   appointment_day_of_week integer CHECK (appointment_day_of_week >= 0 AND appointment_day_of_week <= 6),
   appointment_time time,
+  active boolean DEFAULT true,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -141,6 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_professionals_is_super_admin ON professionals(is_
 
 -- Índices para patients
 CREATE INDEX IF NOT EXISTS idx_patients_professional_id ON patients(professional_id);
+CREATE INDEX IF NOT EXISTS idx_patients_active ON patients(active);
 
 -- Índices para appointments
 CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_unique_slot 
