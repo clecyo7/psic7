@@ -141,14 +141,18 @@ export function MedicalRecordsList() {
     }
   };
 
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = async () => {
     if (consolidatedRecords.length === 0) return;
     const filledRecords = consolidatedRecords.filter(r => r.content.trim() !== '');
     if (filledRecords.length === 0) {
       alert('Não há prontuários preenchidos para gerar o relatório.');
       return;
     }
-    generatePDFReport(filledRecords, consolidatedRecords[0].patient.name);
+    try {
+      await generatePDFReport(filledRecords, consolidatedRecords[0].patient.name);
+    } catch (error: any) {
+      alert('Erro ao gerar PDF: ' + error.message);
+    }
   };
 
   const handlePrint = () => {
