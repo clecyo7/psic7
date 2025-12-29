@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { Calendar, Edit, CheckCircle, XCircle } from 'lucide-react';
 import { AppointmentForm } from './AppointmentForm';
 
@@ -32,14 +33,21 @@ export function AppointmentList() {
 
   const loadAppointments = async () => {
     try {
-      // Carregar apenas agendamentos ativos ou futuros
-      const { data, error } = await supabase
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
+      let query = supabase
         .from('appointments')
         .select(`
           *,
           patient:patients(id, name)
-        `)
-        .eq('professional_id', user?.id)
+        `);
+
+      // Se não for super admin, filtrar apenas os próprios agendamentos
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      const { data, error } = await query
         .or('is_active.eq.true,appointment_date.gte.' + new Date().toISOString())
         .order('appointment_date', { ascending: false });
 

@@ -23,18 +23,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-        
-        // Se o usuário acabou de confirmar o email, redirecionar para a página principal
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Limpar qualquer hash da URL após confirmação
-          if (window.location.hash) {
-            window.history.replaceState(null, '', window.location.pathname);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null);
+      
+      // Se o usuário acabou de fazer login, verificar se precisa criar profissional
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Limpar qualquer hash da URL após confirmação
+        if (window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+
+        // Verificar se há dados de profissional pendentes
+        const pendingData = localStorage.getItem('pending_professional');
+        if (pendingData) {
+          try {
+            const professionalData = JSON.parse(pendingData);
+            
+            // Verificar se já existe profissional para este usuário
+            const { data: existing } = await supabase
+              .from('professionals')
+              .select('id')
+              .eq('user_id', session.user.id)
+              .single();
+
+            if (existing) {
+              // Já existe, apenas atualizar
+              await supabase
+                .from('professionals')
+                .update({
+                  ...professionalData,
+                  email: professionalData.email || session.user.email || null,
+                })
+                .eq('user_id', session.user.id);
+            } else {
+              // Criar novo
+              await supabase
+                .from('professionals')
+                .insert({
+                  user_id: session.user.id,
+                  ...professionalData,
+                  email: professionalData.email || session.user.email || null,
+                  active: true,
+                });
+            }
+
+            // Remover dados pendentes
+            localStorage.removeItem('pending_professional');
+          } catch (error) {
+            console.error('Erro ao criar profissional pendente:', error);
           }
         }
-      })();
+      }
     });
 
     return () => subscription.unsubscribe();

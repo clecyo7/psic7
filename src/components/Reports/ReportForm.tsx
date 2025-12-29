@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { X } from 'lucide-react';
 
 interface Patient {
@@ -72,12 +73,19 @@ export function ReportForm({ reportId, onClose, onSave }: ReportFormProps) {
     if (!reportId) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
+      let query = supabase
         .from('reports')
         .select('*')
-        .eq('id', reportId)
-        .eq('professional_id', user?.id)
-        .single();
+        .eq('id', reportId);
+
+      // Se não for super admin, só pode carregar próprios relatórios
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
 
@@ -143,11 +151,19 @@ export function ReportForm({ reportId, onClose, onSave }: ReportFormProps) {
 
       if (reportId) {
         // Atualizar relatório existente
-        const { error } = await supabase
+        const userIsSuperAdmin = await isSuperAdmin(user?.id);
+        
+        let query = supabase
           .from('reports')
           .update(reportData)
-          .eq('id', reportId)
-          .eq('professional_id', user?.id);
+          .eq('id', reportId);
+
+        // Se não for super admin, só pode atualizar próprios relatórios
+        if (!userIsSuperAdmin) {
+          query = query.eq('professional_id', user?.id);
+        }
+
+        const { error } = await query;
 
         if (error) throw error;
         alert('Relatório atualizado com sucesso!');

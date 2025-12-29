@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { DollarSign, CheckCircle, Edit, X, Trash2 } from 'lucide-react';
 
 interface Transaction {
@@ -32,14 +33,21 @@ export function FinancialManagement() {
 
   const loadTransactions = async () => {
     try {
-      const { data, error } = await supabase
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
+      let query = supabase
         .from('financial_transactions')
         .select(`
           *,
           patient:patients(name)
-        `)
-        .eq('professional_id', user?.id)
-        .order('due_date', { ascending: false });
+        `);
+
+      // Se não for super admin, filtrar apenas as próprias transações
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      const { data, error } = await query.order('due_date', { ascending: false });
 
       if (error) throw error;
       setTransactions(data || []);

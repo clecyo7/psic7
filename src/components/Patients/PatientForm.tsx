@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { X } from 'lucide-react';
 
 // Função para gerar agendamentos automáticos
@@ -112,6 +113,7 @@ interface PatientFormProps {
 export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [professionals, setProfessionals] = useState<Array<{ id: string; name: string }>>([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -134,22 +136,59 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
   });
 
   useEffect(() => {
-    loadProfessionals();
-    if (patientId) {
-      loadPatient();
+    const initialize = async () => {
+      await checkAdminStatus();
+    };
+    initialize();
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadProfessionals();
+      if (patientId) {
+        loadPatient();
+      }
     }
-  }, [patientId]);
+  }, [patientId, isAdmin, user]);
+
+  const checkAdminStatus = async () => {
+    if (user) {
+      const admin = await isSuperAdmin(user.id);
+      setIsAdmin(admin);
+    }
+  };
 
   const loadProfessionals = async () => {
     try {
-      const { data, error } = await supabase
-        .from('professionals')
-        .select('id, name')
-        .eq('active', true)
-        .order('name');
+      // Se for super admin, carrega todos os profissionais
+      // Se não for, carrega apenas o próprio profissional
+      if (isAdmin) {
+        const { data, error } = await supabase
+          .from('professionals')
+          .select('id, name')
+          .eq('active', true)
+          .order('name');
 
-      if (error) throw error;
-      setProfessionals(data || []);
+        if (error) throw error;
+        setProfessionals(data || []);
+      } else if (user) {
+        // Para não-admin, carrega apenas o próprio profissional
+        const { data, error } = await supabase
+          .from('professionals')
+          .select('id, name')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setProfessionals([data]);
+          // Auto-vincular ao próprio profissional se não tiver professional_id e for novo paciente
+          if (!formData.professional_id && !patientId) {
+            setFormData(prev => ({ ...prev, professional_id: data.id }));
+          }
+        }
+      }
     } catch (error: any) {
       console.error('Erro ao carregar profissionais:', error);
     }
@@ -201,10 +240,27 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
       // Preparar dados para salvar (converter tipos)
       // Excluir appointment_count pois não é uma coluna do banco, apenas configuração temporária
       const { appointment_count, ...formDataWithoutCount } = formData;
+      
+      // Se não for super admin, sempre vincular ao próprio profissional
+      let professionalId = formData.professional_id || null;
+      if (!isAdmin && user) {
+        // Buscar o próprio professional_id
+        const { data: professional } = await supabase
+          .from('professionals')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .single();
+        
+        if (professional) {
+          professionalId = professional.id;
+        }
+      }
+      
       const patientData: any = {
         ...formDataWithoutCount,
         user_id: user.id, // Sempre definir user_id para passar na política RLS
-        professional_id: formData.professional_id || null,
+        professional_id: professionalId,
         appointment_day_of_week: formData.appointment_day_of_week ? parseInt(formData.appointment_day_of_week) : null,
         appointment_frequency: formData.appointment_frequency || null,
         appointment_time: formData.appointment_time || null,
@@ -419,23 +475,45 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Profissional Responsável
-            </label>
-            <select
-              value={formData.professional_id}
-              onChange={(e) => setFormData({ ...formData, professional_id: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Selecione um profissional...</option>
-              {professionals.map((professional) => (
-                <option key={professional.id} value={professional.id}>
-                  {professional.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isAdmin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Profissional Responsável
+              </label>
+              <select
+                value={formData.professional_id}
+                onChange={(e) => setFormData({ ...formData, professional_id: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Selecione um profissional...</option>
+                {professionals.map((professional) => (
+                  <option key={professional.id} value={professional.id}>
+                    {professional.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Apenas super administradores podem definir o profissional responsável
+              </p>
+            </div>
+          )}
+          
+          {!isAdmin && professionals.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Profissional Responsável
+              </label>
+              <input
+                type="text"
+                value={professionals[0].name}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Paciente será automaticamente vinculado a você
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

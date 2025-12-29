@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { supabase } from './lib/supabase';
 import { HomePage } from './components/Home/HomePage';
 import { LoginForm } from './components/Auth/LoginForm';
 import { DashboardView } from './components/Dashboard/DashboardView';
@@ -9,6 +10,7 @@ import { MedicalRecordsList } from './components/MedicalRecords/MedicalRecordsLi
 import { FinancialManagement } from './components/Financial/FinancialManagement';
 import { ReportsList } from './components/Reports/ReportsList';
 import { ProfessionalList } from './components/Professionals/ProfessionalList';
+import { AdminPanel } from './components/Admin/AdminPanel';
 import { Logo } from './components/Logo';
 import {
   LayoutDashboard,
@@ -21,6 +23,7 @@ import {
   Menu,
   X,
   UserCheck,
+  Shield,
 } from 'lucide-react';
 
 function AppContent() {
@@ -29,6 +32,7 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   // Verificar se há hash na URL (callback do Supabase após confirmação de email)
   useEffect(() => {
@@ -50,6 +54,44 @@ function AppContent() {
       // Se estiver em outra rota sem estar logado, redirecionar para home
       window.history.replaceState(null, '', '/');
     }
+  }, [user]);
+
+  // Verificar se usuário é super admin
+  useEffect(() => {
+    const checkSuperAdmin = async () => {
+      if (!user) {
+        setIsSuperAdmin(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('professionals')
+          .select('is_super_admin, active')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao verificar super admin:', error);
+          setIsSuperAdmin(false);
+          return;
+        }
+
+        if (data) {
+          // Verificar se é super admin E está ativo
+          const isAdmin = (data.is_super_admin === true) && (data.active === true);
+          setIsSuperAdmin(isAdmin);
+          console.log('Super admin status:', { is_super_admin: data.is_super_admin, active: data.active, result: isAdmin });
+        } else {
+          setIsSuperAdmin(false);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar super admin:', error);
+        setIsSuperAdmin(false);
+      }
+    };
+
+    checkSuperAdmin();
   }, [user]);
 
   if (loading) {
@@ -96,6 +138,7 @@ function AppContent() {
     { id: 'records', label: 'Prontuários', icon: FileText },
     { id: 'financial', label: 'Financeiro', icon: DollarSign },
     { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+    ...(isSuperAdmin ? [{ id: 'admin', label: 'Administração', icon: Shield }] : []),
   ];
 
   const renderView = () => {
@@ -114,6 +157,8 @@ function AppContent() {
         return <FinancialManagement />;
       case 'reports':
         return <ReportsList />;
+      case 'admin':
+        return <AdminPanel />;
       default:
         return <DashboardView />;
     }

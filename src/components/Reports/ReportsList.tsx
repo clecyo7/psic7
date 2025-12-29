@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { FileText, Edit, Trash2, Plus, Eye, X, FileDown } from 'lucide-react';
 import { ReportForm } from './ReportForm';
 import { generateReportPDF } from './PDFReportGenerator';
@@ -35,14 +36,21 @@ export function ReportsList() {
 
   const loadReports = async () => {
     try {
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
       let query = supabase
         .from('reports')
         .select(`
           *,
           patient:patients(id, name)
-        `)
-        .eq('professional_id', user?.id)
-        .order('report_date', { ascending: false });
+        `);
+
+      // Se não for super admin, filtrar apenas os próprios relatórios
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      query = query.order('report_date', { ascending: false });
 
       if (filterType !== 'all') {
         query = query.eq('report_type', filterType);
@@ -77,11 +85,19 @@ export function ReportsList() {
     }
 
     try {
-      const { error } = await supabase
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
+      let query = supabase
         .from('reports')
         .delete()
-        .eq('id', reportId)
-        .eq('professional_id', user?.id);
+        .eq('id', reportId);
+
+      // Se não for super admin, só pode deletar próprios relatórios
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
       alert('Relatório excluído com sucesso!');

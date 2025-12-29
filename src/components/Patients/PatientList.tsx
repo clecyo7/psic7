@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { UserPlus, Edit, Calendar, Eye, X } from 'lucide-react';
 import { PatientForm } from './PatientForm';
 
@@ -24,21 +25,53 @@ export function PatientList() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingPatient, setEditingPatient] = useState<string | undefined>();
   const [viewingAppointments, setViewingAppointments] = useState<string | null>(null);
   const [patientAppointments, setPatientAppointments] = useState<PatientAppointment[]>([]);
 
   useEffect(() => {
-    loadPatients();
+    if (user) {
+      loadPatients();
+    }
   }, [user]);
 
   const loadPatients = async () => {
+    if (!user) return;
+    
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      // Verificar se é super admin diretamente aqui
+      const admin = await isSuperAdmin(user.id);
+      setIsAdmin(admin);
+      
+      let query = supabase
         .from('patients')
-        .select('*')
-        .order('name');
+        .select('*');
+
+      // Se não for super admin, filtrar apenas pacientes vinculados ao profissional
+      if (!admin) {
+        // Buscar o professional_id do usuário logado
+        const { data: professional } = await supabase
+          .from('professionals')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .single();
+
+        if (professional) {
+          query = query.eq('professional_id', professional.id);
+        } else {
+          // Se não encontrou profissional, não mostrar nenhum paciente
+          setPatients([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data, error } = await query.order('name');
 
       if (error) throw error;
       setPatients(data || []);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { FileText, Edit, Eye, X, FileDown, Printer, PenTool, CheckCircle2 } from 'lucide-react';
 import { generatePDFReport } from './PDFReportGenerator';
 
@@ -40,15 +41,22 @@ export function MedicalRecordsList() {
 
   const loadRecords = async () => {
     try {
-      const { data, error } = await supabase
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
+      let query = supabase
         .from('medical_records')
         .select(`
           *,
           patient:patients(id, name),
           appointment:appointments(appointment_date, service_type)
-        `)
-        .eq('professional_id', user?.id)
-        .order('record_date', { ascending: false });
+        `);
+
+      // Se não for super admin, filtrar apenas os próprios registros
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      const { data, error } = await query.order('record_date', { ascending: false });
 
       if (error) throw error;
       setRecords(data || []);

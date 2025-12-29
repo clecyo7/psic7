@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { Calendar, Users, DollarSign, FileText, TrendingUp } from 'lucide-react';
 import { AppointmentCalendar } from '../Calendar/AppointmentCalendar';
 
@@ -31,6 +32,7 @@ export function DashboardView() {
 
   const loadDashboardStats = async () => {
     try {
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
@@ -39,38 +41,53 @@ export function DashboardView() {
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
+      // Criar queries base
+      let todayApptsQuery = supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .gte('appointment_date', today.toISOString())
+        .lt('appointment_date', tomorrow.toISOString());
+
+      let monthRevenueQuery = supabase
+        .from('financial_transactions')
+        .select('amount')
+        .eq('status', 'received')
+        .gte('paid_date', firstDayOfMonth.toISOString().split('T')[0])
+        .lte('paid_date', lastDayOfMonth.toISOString().split('T')[0]);
+
+      let pendingQuery = supabase
+        .from('financial_transactions')
+        .select('amount')
+        .eq('status', 'pending');
+
+      let confirmedQuery = supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'confirmed');
+
+      let completedQuery = supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'completed');
+
+      // Aplicar filtro de professional_id apenas se não for super admin
+      if (!userIsSuperAdmin) {
+        todayApptsQuery = todayApptsQuery.eq('professional_id', user?.id);
+        monthRevenueQuery = monthRevenueQuery.eq('professional_id', user?.id);
+        pendingQuery = pendingQuery.eq('professional_id', user?.id);
+        confirmedQuery = confirmedQuery.eq('professional_id', user?.id);
+        completedQuery = completedQuery.eq('professional_id', user?.id);
+      }
+
       const [patientsRes, todayApptsRes, monthRevenueRes, pendingRes, confirmedRes, completedRes] = await Promise.all([
         supabase
           .from('patients')
           .select('id', { count: 'exact', head: true }),
-        supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('professional_id', user?.id)
-          .gte('appointment_date', today.toISOString())
-          .lt('appointment_date', tomorrow.toISOString()),
-        supabase
-          .from('financial_transactions')
-          .select('amount')
-          .eq('professional_id', user?.id)
-          .eq('status', 'received')
-          .gte('paid_date', firstDayOfMonth.toISOString().split('T')[0])
-          .lte('paid_date', lastDayOfMonth.toISOString().split('T')[0]),
-        supabase
-          .from('financial_transactions')
-          .select('amount')
-          .eq('professional_id', user?.id)
-          .eq('status', 'pending'),
-        supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('professional_id', user?.id)
-          .eq('status', 'confirmed'),
-        supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('professional_id', user?.id)
-          .eq('status', 'completed'),
+        todayApptsQuery,
+        monthRevenueQuery,
+        pendingQuery,
+        confirmedQuery,
+        completedQuery,
       ]);
 
       const monthRevenue = monthRevenueRes.data?.reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0) || 0;

@@ -1,17 +1,62 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { LogIn } from 'lucide-react';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showResendEmail, setShowResendEmail] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
-  const [signUpSuccess, setSignUpSuccess] = useState(false);
-  const { signIn, signUp, resendConfirmationEmail } = useAuth();
+  const { signIn, resendConfirmationEmail } = useAuth();
+
+  // Função para criar profissional a partir de dados pendentes
+  const createProfessionalFromPending = async () => {
+    const pendingData = localStorage.getItem('pending_professional');
+    if (!pendingData) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const professionalData = JSON.parse(pendingData);
+      
+      // Verificar se já existe profissional para este usuário
+      const { data: existing } = await supabase
+        .from('professionals')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (existing) {
+        // Já existe, apenas atualizar
+        await supabase
+          .from('professionals')
+          .update({
+            ...professionalData,
+            email: professionalData.email || user.email || null,
+          })
+          .eq('user_id', user.id);
+      } else {
+        // Criar novo
+        await supabase
+          .from('professionals')
+          .insert({
+            user_id: user.id,
+            ...professionalData,
+            email: professionalData.email || user.email || null,
+            active: true,
+          });
+      }
+
+      // Remover dados pendentes
+      localStorage.removeItem('pending_professional');
+    } catch (error) {
+      console.error('Erro ao criar profissional pendente:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,21 +64,9 @@ export function LoginForm() {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        await signUp(email, password);
-        setSignUpSuccess(true);
-        // Se o signup foi bem-sucedido, tentar fazer login automaticamente após 1 segundo
-        setTimeout(async () => {
-          try {
-            await signIn(email, password);
-          } catch (err) {
-            // Se não conseguir fazer login automaticamente, mostrar mensagem
-            setSignUpSuccess(false);
-          }
-        }, 1000);
-      } else {
-        await signIn(email, password);
-      }
+      await signIn(email, password);
+      // Após login bem-sucedido, verificar se há profissional pendente
+      await createProfessionalFromPending();
     } catch (err: any) {
       const errorMessage = err.message || 'Ocorreu um erro';
 
@@ -82,7 +115,7 @@ export function LoginForm() {
           </div>
         </div>
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-2">
-          {isSignUp ? 'Criar Conta' : 'Entrar'}
+          Entrar
         </h2>
         <p className="text-center text-sm sm:text-base text-gray-600 mb-6 sm:mb-8">
           Sistema de Gestão de Consultório
@@ -110,11 +143,6 @@ export function LoginForm() {
           </div>
         )}
 
-        {signUpSuccess && (
-          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-4">
-            Conta criada com sucesso! Fazendo login...
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -147,22 +175,20 @@ export function LoginForm() {
             />
           </div>
 
+
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Processando...' : isSignUp ? 'Criar Conta' : 'Entrar'}
+            {loading ? 'Processando...' : 'Entrar'}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-blue-600 hover:text-blue-700 font-medium"
-          >
-            {isSignUp ? 'Já tem conta? Entrar' : 'Não tem conta? Criar'}
-          </button>
+          <p className="text-sm text-gray-600">
+            Não tem conta? Entre em contato com o administrador do sistema.
+          </p>
         </div>
       </div>
     </div>
