@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Remover dados pendentes
             localStorage.removeItem('pending_professional');
           } catch (error) {
-            console.error('Erro ao criar profissional pendente:', error);
+            // Silenciosamente falha ao criar profissional pendente
           }
         }
       }
@@ -123,33 +123,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Verificar se há sessão antes de tentar fazer logout
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        // Só tenta fazer logout se houver sessão
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          // Se o erro for de sessão faltando, apenas limpar o estado local
-          if (error.message.includes('session') || error.message.includes('Auth session missing')) {
-            console.warn('Sessão já não existe, limpando estado local');
-            setUser(null);
-            return;
-          }
-          throw error;
-        }
-      } else {
-        // Se não há sessão, apenas limpar o estado local
-        setUser(null);
-      }
-    } catch (error: any) {
-      // Se der erro, tentar limpar o estado local mesmo assim
-      console.error('Erro ao fazer logout:', error);
+      // Limpar estado local primeiro para resposta imediata
       setUser(null);
       
-      // Se não for erro de sessão faltando, relançar o erro
+      // Limpar armazenamento local antes do logout
+      localStorage.removeItem('pending_professional');
+      sessionStorage.clear();
+      
+      // Fazer logout no Supabase
+      // O signOut sem parâmetros limpa a sessão atual
+      await supabase.auth.signOut();
+      
+      // Forçar limpeza adicional após um pequeno delay para garantir
+      // que todas as referências sejam limpas
+      setTimeout(() => {
+        setUser(null);
+        localStorage.removeItem('pending_professional');
+        sessionStorage.clear();
+      }, 100);
+    } catch (error: any) {
+      // Garantir que o estado local está limpo mesmo em caso de erro
+      setUser(null);
+      localStorage.removeItem('pending_professional');
+      sessionStorage.clear();
+      
+      // Em produção, não relançar erros de sessão
       if (!error?.message?.includes('session') && !error?.message?.includes('Auth session missing')) {
-        throw error;
+        // Apenas ignorar erros não críticos
       }
     }
   };

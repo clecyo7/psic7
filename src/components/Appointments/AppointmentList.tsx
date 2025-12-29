@@ -70,7 +70,7 @@ export function AppointmentList() {
 
       setAppointments(appointmentsWithConfirmations as Appointment[]);
     } catch (error) {
-      console.error('Error loading appointments:', error);
+      // Erro ao carregar agendamentos
     } finally {
       setLoading(false);
     }

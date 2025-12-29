@@ -93,7 +93,7 @@ const generateRecurringAppointments = async (
     }
     
     if (failedCount > 0) {
-      console.error(`Atenção: ${failedCount} agendamento(s) não puderam ser inseridos de ${appointments.length} total`);
+      // Alguns agendamentos não puderam ser inseridos
     }
     
     // Não criar confirmações ainda - serão criadas quando os agendamentos forem ativados em D-1
@@ -190,7 +190,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
         }
       }
     } catch (error: any) {
-      console.error('Erro ao carregar profissionais:', error);
+      // Erro ao carregar profissionais
     }
   };
 

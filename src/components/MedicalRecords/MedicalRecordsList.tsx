@@ -61,7 +61,7 @@ export function MedicalRecordsList() {
       if (error) throw error;
       setRecords(data || []);
     } catch (error) {
-      console.error('Error loading records:', error);
+      // Erro ao carregar prontuários
     } finally {
       setLoading(false);
     }

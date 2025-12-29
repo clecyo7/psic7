@@ -54,7 +54,7 @@ export function LoginForm() {
       // Remover dados pendentes
       localStorage.removeItem('pending_professional');
     } catch (error) {
-      console.error('Erro ao criar profissional pendente:', error);
+      // Erro ao criar profissional pendente
     }
   };
 

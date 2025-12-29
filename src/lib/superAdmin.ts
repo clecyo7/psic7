@@ -17,7 +17,6 @@ export async function isSuperAdmin(userId: string | undefined): Promise<boolean>
     if (error || !data) return false;
     return data.is_super_admin || false;
   } catch (error) {
-    console.error('Erro ao verificar super admin:', error);
     return false;
   }
 }

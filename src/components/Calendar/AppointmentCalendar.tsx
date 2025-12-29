@@ -51,7 +51,7 @@ export function AppointmentCalendar() {
       if (error) throw error;
       setAppointments((data || []) as CalendarAppointment[]);
     } catch (error) {
-      console.error('Error loading appointments:', error);
+      // Erro ao carregar agendamentos
     } finally {
       setLoading(false);
     }

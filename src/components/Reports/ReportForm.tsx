@@ -60,7 +60,6 @@ export function ReportForm({ reportId, onClose, onSave }: ReportFormProps) {
 
         if (profError || !professional) {
           // Se não encontrou profissional, não mostrar nenhum paciente
-          console.warn('Profissional não encontrado para o usuário:', user.id);
           setPatients([]);
           return;
         }
@@ -73,7 +72,6 @@ export function ReportForm({ reportId, onClose, onSave }: ReportFormProps) {
       if (error) throw error;
       setPatients(data || []);
     } catch (error: any) {
-      console.error('Erro ao carregar pacientes:', error);
       alert('Erro ao carregar pacientes: ' + error.message);
       setPatients([]);
     }
@@ -94,7 +92,6 @@ export function ReportForm({ reportId, onClose, onSave }: ReportFormProps) {
       if (error) throw error;
       setSelectedProfessional(data);
     } catch (error: any) {
-      console.error('Erro ao carregar profissional:', error);
       setSelectedProfessional(null);
     }
   };

@@ -75,7 +75,7 @@ function AppContent() {
           .single();
 
         if (error) {
-          console.error('Erro ao verificar super admin:', error);
+          // Erro ao verificar super admin
           setIsSuperAdmin(false);
           return;
         }
@@ -84,7 +84,6 @@ function AppContent() {
           // Verificar se é super admin E está ativo
           const isAdmin = (data.is_super_admin === true) && (data.active === true);
           setIsSuperAdmin(isAdmin);
-          console.log('Super admin status:', { is_super_admin: data.is_super_admin, active: data.active, result: isAdmin });
         } else {
           setIsSuperAdmin(false);
         }

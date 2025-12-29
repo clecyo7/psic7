@@ -11,13 +11,11 @@ export async function runDailyAppointmentScheduler() {
     const { data, error } = await supabase.rpc('activate_daily_appointments');
     
     if (error) {
-      console.error('Erro ao executar rotina diária de agendamentos:', error);
       throw error;
     }
     
     return data;
   } catch (error) {
-    console.error('Erro na rotina diária:', error);
     throw error;
   }
 }
@@ -30,13 +28,11 @@ export async function expireUnconfirmedAppointments() {
     const { data, error } = await supabase.rpc('expire_unconfirmed_appointments');
     
     if (error) {
-      console.error('Erro ao expirar agendamentos:', error);
       throw error;
     }
     
     return data;
   } catch (error) {
-    console.error('Erro ao expirar agendamentos:', error);
     throw error;
   }
 }
@@ -57,13 +53,11 @@ export async function checkAppointmentConflict(
     });
     
     if (error) {
-      console.error('Erro ao verificar conflito:', error);
       throw error;
     }
     
     return data as boolean;
   } catch (error) {
-    console.error('Erro ao verificar conflito:', error);
     throw error;
   }
 }

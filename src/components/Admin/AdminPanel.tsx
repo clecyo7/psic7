@@ -57,7 +57,7 @@ export function AdminPanel() {
         setIsSuperAdmin(data.is_super_admin || false);
       }
     } catch (error) {
-      console.error('Erro ao verificar super admin:', error);
+      // Erro ao verificar super admin
     }
   };
 
@@ -77,11 +77,8 @@ export function AdminPanel() {
         .order('created_at', { ascending: false });
 
       if (professionalsError) {
-        console.error('Erro ao buscar profissionais:', professionalsError);
         throw professionalsError;
       }
-
-      console.log('Profissionais encontrados:', professionalsData);
 
       // Processar dados
       const professionalsList: Professional[] = professionalsData?.map((prof: any) => ({
@@ -93,10 +90,8 @@ export function AdminPanel() {
         active: prof.active,
       })) || [];
 
-      console.log('Profissionais processados:', professionalsList);
       setProfessionals(professionalsList);
     } catch (error: any) {
-      console.error('Erro completo ao carregar dados:', error);
       alert('Erro ao carregar dados: ' + error.message);
     } finally {
       setLoading(false);

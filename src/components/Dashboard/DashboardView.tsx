@@ -102,7 +102,7 @@ export function DashboardView() {
         completedAppointments: completedRes.count || 0,
       });
     } catch (error) {
-      console.error('Error loading dashboard stats:', error);
+      // Erro ao carregar estatísticas do dashboard
     } finally {
       setLoading(false);
     }

@@ -68,7 +68,7 @@ export function ReportsList() {
 
       setReports(filteredData);
     } catch (error) {
-      console.error('Error loading reports:', error);
+      // Erro ao carregar relatórios
     } finally {
       setLoading(false);
     }
@@ -121,7 +121,6 @@ export function ReportsList() {
         .single();
 
       if (patientError) {
-        console.warn('Erro ao buscar dados do paciente:', patientError);
         // Continuar mesmo sem dados completos do paciente
         await generateReportPDF(report);
         return;

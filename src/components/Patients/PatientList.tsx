@@ -90,7 +90,7 @@ export function PatientList() {
       if (error) throw error;
       setPatients(data || []);
     } catch (error) {
-      console.error('Error loading patients:', error);
+      // Erro ao carregar pacientes
     } finally {
       setLoading(false);
     }

@@ -82,7 +82,7 @@ export function ReportsView() {
         })),
       });
     } catch (error) {
-      console.error('Error loading report data:', error);
+      // Erro ao carregar dados do relatório
     } finally {
       setLoading(false);
     }
