@@ -112,6 +112,7 @@ interface PatientFormProps {
 export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [professionals, setProfessionals] = useState<Array<{ id: string; name: string }>>([]);
   const [formData, setFormData] = useState({
     name: '',
     birth_date: '',
@@ -129,13 +130,30 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
     appointment_day_of_week: '',
     appointment_time: '',
     appointment_count: '12', // Quantidade de agendamentos a gerar
+    professional_id: '',
   });
 
   useEffect(() => {
+    loadProfessionals();
     if (patientId) {
       loadPatient();
     }
   }, [patientId]);
+
+  const loadProfessionals = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('professionals')
+        .select('id, name')
+        .eq('active', true)
+        .order('name');
+
+      if (error) throw error;
+      setProfessionals(data || []);
+    } catch (error: any) {
+      console.error('Erro ao carregar profissionais:', error);
+    }
+  };
 
   const loadPatient = async () => {
     if (!patientId) return;
@@ -164,6 +182,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
         appointment_day_of_week: data.appointment_day_of_week?.toString() || '',
         appointment_time: data.appointment_time || '',
         appointment_count: '12', // Sempre começar com 12 ao editar
+        professional_id: data.professional_id || '',
       });
     }
   };
@@ -185,6 +204,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
       const patientData: any = {
         ...formDataWithoutCount,
         user_id: user.id, // Sempre definir user_id para passar na política RLS
+        professional_id: formData.professional_id || null,
         appointment_day_of_week: formData.appointment_day_of_week ? parseInt(formData.appointment_day_of_week) : null,
         appointment_frequency: formData.appointment_frequency || null,
         appointment_time: formData.appointment_time || null,
@@ -397,6 +417,24 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
                 <option value="ambos">Ambos</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Profissional Responsável
+            </label>
+            <select
+              value={formData.professional_id}
+              onChange={(e) => setFormData({ ...formData, professional_id: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione um profissional...</option>
+              {professionals.map((professional) => (
+                <option key={professional.id} value={professional.id}>
+                  {professional.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

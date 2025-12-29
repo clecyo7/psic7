@@ -7,7 +7,9 @@ import { PatientList } from './components/Patients/PatientList';
 import { AppointmentList } from './components/Appointments/AppointmentList';
 import { MedicalRecordsList } from './components/MedicalRecords/MedicalRecordsList';
 import { FinancialManagement } from './components/Financial/FinancialManagement';
-import { ReportsView } from './components/Reports/ReportsView';
+import { ReportsList } from './components/Reports/ReportsList';
+import { ProfessionalList } from './components/Professionals/ProfessionalList';
+import { Logo } from './components/Logo';
 import {
   LayoutDashboard,
   Users,
@@ -18,6 +20,7 @@ import {
   LogOut,
   Menu,
   X,
+  UserCheck,
 } from 'lucide-react';
 
 function AppContent() {
@@ -88,6 +91,7 @@ function AppContent() {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'patients', label: 'Pacientes', icon: Users },
+    { id: 'professionals', label: 'Profissionais', icon: UserCheck },
     { id: 'appointments', label: 'Agendamentos', icon: Calendar },
     { id: 'records', label: 'Prontuários', icon: FileText },
     { id: 'financial', label: 'Financeiro', icon: DollarSign },
@@ -100,6 +104,8 @@ function AppContent() {
         return <DashboardView />;
       case 'patients':
         return <PatientList />;
+      case 'professionals':
+        return <ProfessionalList />;
       case 'appointments':
         return <AppointmentList />;
       case 'records':
@@ -107,7 +113,7 @@ function AppContent() {
       case 'financial':
         return <FinancialManagement />;
       case 'reports':
-        return <ReportsView />;
+        return <ReportsList />;
       default:
         return <DashboardView />;
     }
@@ -134,8 +140,13 @@ function AppContent() {
         } lg:translate-x-0 w-64 lg:w-64`}
       >
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Psi Cloud</h1>
-          <p className="text-xs sm:text-sm text-gray-600 mt-1">Sistema de Gestão</p>
+          <div className="flex items-center gap-3">
+            <Logo width={40} height={30} />
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Psi Cloud</h1>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1">Sistema de Gestão</p>
+            </div>
+          </div>
         </div>
 
         <nav className="p-3 sm:p-4 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>

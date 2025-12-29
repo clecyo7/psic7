@@ -11,7 +11,7 @@ export type Database = {
       patients: {
         Row: {
           id: string;
-          user_id: string;
+          user_id: string | null;
           name: string;
           birth_date: string;
           document: string;
@@ -20,11 +20,28 @@ export type Database = {
           email: string;
           education_level: string;
           service_type: 'online' | 'presencial' | 'ambos';
+          professional_id: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Omit<Database['public']['Tables']['patients']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['patients']['Insert']>;
+      };
+      professionals: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          name: string;
+          registration_number: string | null;
+          specialization: string | null;
+          email: string | null;
+          phone: string | null;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['professionals']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['professionals']['Insert']>;
       };
       appointments: {
         Row: {
@@ -83,6 +100,21 @@ export type Database = {
         };
         Insert: Omit<Database['public']['Tables']['financial_transactions']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['financial_transactions']['Insert']>;
+      };
+      reports: {
+        Row: {
+          id: string;
+          patient_id: string;
+          professional_id: string;
+          title: string;
+          content: string;
+          report_date: string;
+          report_type: 'geral' | 'avaliacao' | 'evolucao' | 'alta' | 'outro';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['reports']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['reports']['Insert']>;
       };
     };
   };
