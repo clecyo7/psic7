@@ -231,6 +231,20 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
     setLoading(true);
 
     try {
+      // Validação dos campos obrigatórios
+      if (!formData.name.trim()) {
+        throw new Error('Nome é obrigatório');
+      }
+      if (!formData.consultation_price || parseFloat(formData.consultation_price) <= 0) {
+        throw new Error('Valor da consulta é obrigatório e deve ser maior que zero');
+      }
+      if (!formData.emergency_contact.trim()) {
+        throw new Error('Telefone é obrigatório');
+      }
+      if (!formData.appointment_day_of_week) {
+        throw new Error('Dia de atendimento é obrigatório');
+      }
+
       let savedPatientId = patientId;
       
       if (!user?.id) {
@@ -359,7 +373,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nome Completo
+              Nome Completo <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -377,7 +391,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
               </label>
               <input
                 type="date"
-                required
                 value={formData.birth_date}
                 onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -390,7 +403,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
               </label>
               <input
                 type="text"
-                required
                 value={formData.document}
                 onChange={(e) => setFormData({ ...formData, document: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -404,7 +416,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
             </label>
             <input
               type="text"
-              required
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -414,7 +425,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contato de Emergência
+                Telefone <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -422,6 +433,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
                 value={formData.emergency_contact}
                 onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="(00) 00000-0000"
               />
             </div>
 
@@ -431,7 +443,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
               </label>
               <input
                 type="email"
-                required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -445,7 +456,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
                 Escolaridade
               </label>
               <select
-                required
                 value={formData.education_level}
                 onChange={(e) => setFormData({ ...formData, education_level: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -463,7 +473,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
                 Tipo de Atendimento
               </label>
               <select
-                required
                 value={formData.service_type}
                 onChange={(e) => setFormData({ ...formData, service_type: e.target.value as any })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -517,7 +526,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Valor da Consulta (R$)
+              Valor da Consulta (R$) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -533,7 +542,7 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
 
           <div className="pt-4 border-t border-gray-200">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Agendamento Recorrente (Opcional)
+              Agendamento Recorrente
             </h3>
             <p className="text-sm text-gray-600 mb-4">
               Configure agendamentos automáticos para este paciente. O sistema gerará automaticamente os próximos agendamentos baseado na frequência escolhida.
@@ -549,34 +558,35 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
                   onChange={(e) => setFormData({ ...formData, appointment_frequency: e.target.value as 'semanal' | 'quinzenal' | '' })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">Não configurar agendamento recorrente</option>
+                  <option value="">Selecione a frequência...</option>
                   <option value="semanal">Semanal</option>
                   <option value="quinzenal">Quinzenal</option>
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dia da Semana <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.appointment_day_of_week}
+                  onChange={(e) => setFormData({ ...formData, appointment_day_of_week: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Selecione o dia...</option>
+                  <option value="0">Domingo</option>
+                  <option value="1">Segunda-feira</option>
+                  <option value="2">Terça-feira</option>
+                  <option value="3">Quarta-feira</option>
+                  <option value="4">Quinta-feira</option>
+                  <option value="5">Sexta-feira</option>
+                  <option value="6">Sábado</option>
+                </select>
+              </div>
+
               {formData.appointment_frequency && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Dia da Semana
-                    </label>
-                    <select
-                      value={formData.appointment_day_of_week}
-                      onChange={(e) => setFormData({ ...formData, appointment_day_of_week: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required={!!formData.appointment_frequency}
-                    >
-                      <option value="">Selecione o dia...</option>
-                      <option value="0">Domingo</option>
-                      <option value="1">Segunda-feira</option>
-                      <option value="2">Terça-feira</option>
-                      <option value="3">Quarta-feira</option>
-                      <option value="4">Quinta-feira</option>
-                      <option value="5">Sexta-feira</option>
-                      <option value="6">Sábado</option>
-                    </select>
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -587,7 +597,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
                       value={formData.appointment_time}
                       onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required={!!formData.appointment_frequency}
                     />
                   </div>
 
@@ -602,7 +611,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
                       value={formData.appointment_count}
                       onChange={(e) => setFormData({ ...formData, appointment_count: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required={!!formData.appointment_frequency}
                       placeholder="12"
                     />
                     <p className="text-xs text-gray-500 mt-1">

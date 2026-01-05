@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isSuperAdmin } from '../../lib/superAdmin';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { AppointmentForm } from '../Appointments/AppointmentForm';
 
@@ -31,22 +32,29 @@ export function AppointmentCalendar() {
 
   const loadAppointments = async () => {
     try {
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
       const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       startDate.setHours(0, 0, 0, 0);
       
       const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
       endDate.setHours(23, 59, 59, 999);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('appointments')
         .select(`
           *,
           patient:patients(id, name)
         `)
-        .eq('professional_id', user?.id)
         .gte('appointment_date', startDate.toISOString())
         .lte('appointment_date', endDate.toISOString())
         .order('appointment_date', { ascending: true });
+
+      // Se não for super admin, filtrar apenas os próprios agendamentos
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setAppointments((data || []) as CalendarAppointment[]);
