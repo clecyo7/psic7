@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { AppointmentForm } from '../Appointments/AppointmentForm';
 
 interface CalendarAppointment {
@@ -25,6 +25,7 @@ export function AppointmentCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<string | undefined>();
   const [showForm, setShowForm] = useState(false);
+  const [showDayAppointments, setShowDayAppointments] = useState<Date | null>(null);
 
   useEffect(() => {
     loadAppointments();
@@ -162,6 +163,31 @@ export function AppointmentCalendar() {
   const handleSave = () => {
     loadAppointments();
     handleCloseForm();
+  };
+
+  const handleShowMoreAppointments = (date: Date, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDayAppointments(date);
+  };
+
+  const handleCloseDayAppointments = () => {
+    setShowDayAppointments(null);
+  };
+
+  const handleAppointmentClick = (appointmentId: string) => {
+    setSelectedAppointment(appointmentId);
+    setShowDayAppointments(null);
+    setShowForm(true);
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending_confirmation': return 'Pendente';
+      case 'confirmed': return 'Confirmado';
+      case 'completed': return 'Concluído';
+      case 'cancelled': return 'Cancelado';
+      default: return status;
+    }
   };
 
   const monthNames = [
@@ -306,7 +332,10 @@ export function AppointmentCalendar() {
                     </div>
                   ))}
                   {dayAppointments.length > 3 && (
-                    <div className="text-xs text-gray-500 font-medium">
+                    <div 
+                      onClick={(e) => handleShowMoreAppointments(day.date, e)}
+                      className="text-xs text-gray-500 font-medium cursor-pointer hover:text-blue-600 hover:underline transition"
+                    >
                       +{dayAppointments.length - 3} mais
                     </div>
                   )}
@@ -316,6 +345,86 @@ export function AppointmentCalendar() {
           })}
         </div>
       </div>
+
+      {/* Modal de Agendamentos do Dia */}
+      {showDayAppointments && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Agendamentos do Dia</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {showDayAppointments.toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+              </div>
+              <button
+                onClick={handleCloseDayAppointments}
+                className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              {(() => {
+                const dayAppts = getAppointmentsForDate(showDayAppointments);
+                if (dayAppts.length === 0) {
+                  return (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600">Nenhum agendamento para este dia</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {dayAppts.map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        onClick={() => handleAppointmentClick(appointment.id)}
+                        className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 cursor-pointer transition"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="text-lg font-semibold text-gray-800">
+                                {new Date(appointment.appointment_date).toLocaleTimeString('pt-BR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)} text-white`}>
+                                {getStatusText(appointment.status)}
+                              </span>
+                            </div>
+                            <p className="text-gray-700 font-medium">
+                              {appointment.patient?.name || 'Sem paciente'}
+                            </p>
+                            <p className="text-sm text-gray-600 capitalize mt-1">
+                              {appointment.service_type}
+                            </p>
+                            {appointment.notes && (
+                              <p className="text-sm text-gray-500 mt-2 italic">
+                                {appointment.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Formulário */}
       {showForm && (

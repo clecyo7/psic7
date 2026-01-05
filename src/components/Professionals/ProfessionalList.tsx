@@ -93,7 +93,12 @@ export function ProfessionalList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Profissionais</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Profissionais</h1>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              {filteredProfessionals.length} {filteredProfessionals.length === 1 ? 'cadastrado' : 'cadastrados'}
+            </span>
+          </div>
           <p className="text-gray-600 mt-1">Gerencie os profissionais do consultório</p>
         </div>
         {isAdmin && (

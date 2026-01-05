@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { DollarSign, CheckCircle, Edit, X, Trash2 } from 'lucide-react';
+import { DollarSign, CheckCircle, Edit, X, Trash2, TrendingUp, Calendar } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -16,10 +16,20 @@ interface Transaction {
   };
 }
 
+interface RevenueEstimate {
+  totalPatients: number;
+  totalMonthlyRevenue: number;
+  totalWeeklyRevenue: number;
+  totalBiweeklyRevenue: number;
+  patientsWithPrice: number;
+  patientsWithoutPrice: number;
+}
+
 export function FinancialManagement() {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revenueEstimate, setRevenueEstimate] = useState<RevenueEstimate | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editForm, setEditForm] = useState({
     amount: '',
@@ -29,6 +39,7 @@ export function FinancialManagement() {
 
   useEffect(() => {
     loadTransactions();
+    loadRevenueEstimate();
   }, [user]);
 
   const loadTransactions = async () => {
@@ -55,6 +66,87 @@ export function FinancialManagement() {
       // Erro ao carregar transações
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRevenueEstimate = async () => {
+    try {
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
+      let patientsQuery = supabase
+        .from('patients')
+        .select('id, consultation_price, appointment_frequency, active');
+
+      // Se não for super admin, filtrar apenas pacientes do próprio profissional
+      if (!userIsSuperAdmin && user) {
+        const { data: professional } = await supabase
+          .from('professionals')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .single();
+
+        if (professional) {
+          patientsQuery = patientsQuery.eq('professional_id', professional.id);
+        } else {
+          setRevenueEstimate({
+            totalPatients: 0,
+            totalMonthlyRevenue: 0,
+            totalWeeklyRevenue: 0,
+            totalBiweeklyRevenue: 0,
+            patientsWithPrice: 0,
+            patientsWithoutPrice: 0,
+          });
+          return;
+        }
+      }
+
+      const { data: patients, error } = await patientsQuery;
+
+      if (error) throw error;
+
+      // Calcular estimativas
+      const activePatients = (patients || []).filter(p => p.active !== false);
+      const patientsWithPrice = activePatients.filter(p => p.consultation_price && parseFloat(p.consultation_price.toString()) > 0);
+      const patientsWithoutPrice = activePatients.length - patientsWithPrice.length;
+
+      // Calcular receita semanal (pacientes com frequência semanal)
+      const weeklyPatients = patientsWithPrice.filter(p => p.appointment_frequency === 'semanal');
+      const totalWeeklyRevenue = weeklyPatients.reduce((sum, p) => {
+        return sum + parseFloat(p.consultation_price?.toString() || '0');
+      }, 0);
+
+      // Calcular receita quinzenal (pacientes com frequência quinzenal)
+      const biweeklyPatients = patientsWithPrice.filter(p => p.appointment_frequency === 'quinzenal');
+      const totalBiweeklyRevenue = biweeklyPatients.reduce((sum, p) => {
+        return sum + parseFloat(p.consultation_price?.toString() || '0');
+      }, 0);
+
+      // Calcular receita mensal
+      // Semanal: 4 consultas por mês
+      // Quinzenal: 2 consultas por mês
+      // Sem frequência definida: assumir 1 consulta por mês
+      const patientsWithoutFrequency = patientsWithPrice.filter(
+        p => p.appointment_frequency !== 'semanal' && p.appointment_frequency !== 'quinzenal'
+      );
+      const monthlyFromWeekly = totalWeeklyRevenue * 4;
+      const monthlyFromBiweekly = totalBiweeklyRevenue * 2;
+      const monthlyFromOthers = patientsWithoutFrequency.reduce((sum, p) => {
+        return sum + parseFloat(p.consultation_price?.toString() || '0');
+      }, 0);
+
+      const totalMonthlyRevenue = monthlyFromWeekly + monthlyFromBiweekly + monthlyFromOthers;
+
+      setRevenueEstimate({
+        totalPatients: activePatients.length,
+        totalMonthlyRevenue,
+        totalWeeklyRevenue,
+        totalBiweeklyRevenue,
+        patientsWithPrice: patientsWithPrice.length,
+        patientsWithoutPrice,
+      });
+    } catch (error) {
+      // Erro ao carregar estimativa
     }
   };
 
@@ -176,7 +268,7 @@ export function FinancialManagement() {
         <p className="text-sm sm:text-base text-gray-600 mt-1">Controle financeiro do consultório</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
@@ -210,7 +302,80 @@ export function FinancialManagement() {
             </div>
           </div>
         </div>
+
+        {revenueEstimate && (
+          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border-2 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 flex items-center gap-1">
+                  <TrendingUp className="w-4 h-4" />
+                  Previsão Mensal
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2 break-words">
+                  R$ {revenueEstimate.totalMonthlyRevenue.toFixed(2)}
+                </p>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                  {revenueEstimate.patientsWithPrice} de {revenueEstimate.totalPatients} pacientes
+                </p>
+                {revenueEstimate.patientsWithoutPrice > 0 && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    {revenueEstimate.patientsWithoutPrice} sem valor definido
+                  </p>
+                )}
+              </div>
+              <div className="bg-blue-100 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+                <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Card de Detalhes da Previsão */}
+      {revenueEstimate && revenueEstimate.totalPatients > 0 && (
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            Estimativa de Receita
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-blue-50 rounded-lg p-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total de Pacientes</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-1">
+                {revenueEstimate.totalPatients}
+              </p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Com Valor Definido</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-700 mt-1">
+                {revenueEstimate.patientsWithPrice}
+              </p>
+            </div>
+            <div className="bg-purple-50 rounded-lg p-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Receita Semanal</p>
+              <p className="text-xl sm:text-2xl font-bold text-purple-700 mt-1">
+                R$ {revenueEstimate.totalWeeklyRevenue.toFixed(2)}
+              </p>
+            </div>
+            <div className="bg-indigo-50 rounded-lg p-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Receita Quinzenal</p>
+              <p className="text-xl sm:text-2xl font-bold text-indigo-700 mt-1">
+                R$ {revenueEstimate.totalBiweeklyRevenue.toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-gray-600">
+              <strong>Como funciona:</strong> A previsão mensal considera a frequência de consultas de cada paciente:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Pacientes com frequência <strong>semanal</strong>: 4 consultas por mês</li>
+                <li>Pacientes com frequência <strong>quinzenal</strong>: 2 consultas por mês</li>
+                <li>Pacientes sem frequência definida: 1 consulta por mês</li>
+              </ul>
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
