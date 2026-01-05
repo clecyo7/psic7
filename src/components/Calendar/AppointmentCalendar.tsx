@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, CheckCircle } from 'lucide-react';
 import { AppointmentForm } from '../Appointments/AppointmentForm';
 
 interface CalendarAppointment {
@@ -14,6 +14,9 @@ interface CalendarAppointment {
   patient: {
     id: string;
     name: string;
+  } | null;
+  confirmation?: {
+    confirmed: boolean;
   } | null;
 }
 
@@ -58,7 +61,24 @@ export function AppointmentCalendar() {
       const { data, error } = await query;
 
       if (error) throw error;
-      setAppointments((data || []) as CalendarAppointment[]);
+
+      // Carregar confirmações para cada agendamento
+      const appointmentsWithConfirmations = await Promise.all(
+        (data || []).map(async (appointment: any) => {
+          const { data: confirmation } = await supabase
+            .from('appointment_confirmations')
+            .select('confirmed')
+            .eq('appointment_id', appointment.id)
+            .maybeSingle();
+
+          return {
+            ...appointment,
+            confirmation,
+          };
+        })
+      );
+
+      setAppointments(appointmentsWithConfirmations as CalendarAppointment[]);
     } catch (error) {
       // Erro ao carregar agendamentos
     } finally {
@@ -178,6 +198,30 @@ export function AppointmentCalendar() {
     setSelectedAppointment(appointmentId);
     setShowDayAppointments(null);
     setShowForm(true);
+  };
+
+  const handleConfirm = async (appointmentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error: confirmError } = await supabase
+        .from('appointment_confirmations')
+        .update({ confirmed: true, confirmed_at: new Date().toISOString() })
+        .eq('appointment_id', appointmentId);
+
+      if (confirmError) throw confirmError;
+
+      const { error: appointmentError } = await supabase
+        .from('appointments')
+        .update({ status: 'confirmed' })
+        .eq('id', appointmentId);
+
+      if (appointmentError) throw appointmentError;
+
+      loadAppointments();
+      alert('Agendamento confirmado com sucesso!');
+    } catch (error: any) {
+      alert('Erro ao confirmar agendamento: ' + error.message);
+    }
   };
 
   const getStatusText = (status: string) => {
@@ -387,11 +431,13 @@ export function AppointmentCalendar() {
                     {dayAppts.map((appointment) => (
                       <div
                         key={appointment.id}
-                        onClick={() => handleAppointmentClick(appointment.id)}
-                        className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 cursor-pointer transition"
+                        className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 transition"
                       >
                         <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => handleAppointmentClick(appointment.id)}
+                          >
                             <div className="flex items-center gap-3 mb-2">
                               <span className="text-lg font-semibold text-gray-800">
                                 {new Date(appointment.appointment_date).toLocaleTimeString('pt-BR', {
@@ -402,6 +448,12 @@ export function AppointmentCalendar() {
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)} text-white`}>
                                 {getStatusText(appointment.status)}
                               </span>
+                              {appointment.confirmation?.confirmed && (
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Confirmado
+                                </span>
+                              )}
                             </div>
                             <p className="text-gray-700 font-medium">
                               {appointment.patient?.name || 'Sem paciente'}
@@ -414,6 +466,24 @@ export function AppointmentCalendar() {
                                 {appointment.notes}
                               </p>
                             )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                            {appointment.status === 'pending_confirmation' && !appointment.confirmation?.confirmed && (
+                              <button
+                                onClick={(e) => handleConfirm(appointment.id, e)}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
+                                title="Confirmar Agendamento"
+                              >
+                                <CheckCircle className="w-5 h-5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleAppointmentClick(appointment.id)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              title="Editar Agendamento"
+                            >
+                              <Plus className="w-5 h-5" />
+                            </button>
                           </div>
                         </div>
                       </div>
