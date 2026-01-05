@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { FileText, Edit, Eye, X, FileDown, Printer, PenTool, CheckCircle2 } from 'lucide-react';
+import { FileText, Edit, Eye, X, FileDown, Printer, PenTool, CheckCircle2, Search, Filter } from 'lucide-react';
 import { generatePDFReport } from './PDFReportGenerator';
 
 interface MedicalRecord {
@@ -34,6 +34,14 @@ export function MedicalRecordsList() {
   const [signRecord, setSignRecord] = useState(false);
   const [professionalName, setProfessionalName] = useState('');
   const [professionalRegistration, setProfessionalRegistration] = useState('');
+  
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterSigned, setFilterSigned] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'name'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadRecords();
@@ -185,6 +193,66 @@ export function MedicalRecordsList() {
     return 'bg-blue-200 text-blue-800';
   };
 
+  // Filtrar e ordenar prontuários
+  const filteredRecords = records
+    .filter((record) => {
+      // Filtro por nome do paciente ou conteúdo (busca no texto do prontuário)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const nameMatch = record.patient.name.toLowerCase().includes(searchLower);
+        const contentMatch = record.content.toLowerCase().includes(searchLower);
+        if (!nameMatch && !contentMatch) {
+          return false;
+        }
+      }
+
+      // Filtro por data
+      if (filterDate) {
+        const recordDate = new Date(record.record_date).toISOString().split('T')[0];
+        if (recordDate !== filterDate) {
+          return false;
+        }
+      }
+
+      // Filtro por status (preenchido/não preenchido)
+      if (filterStatus) {
+        if (filterStatus === 'empty' && record.content.trim() !== '') return false;
+        if (filterStatus === 'filled' && record.content.trim() === '') return false;
+      }
+
+      // Filtro por assinado
+      if (filterSigned) {
+        if (filterSigned === 'signed' && !record.signed) return false;
+        if (filterSigned === 'unsigned' && record.signed) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        const nameA = a.patient.name.toLowerCase();
+        const nameB = b.patient.name.toLowerCase();
+        return sortOrder === 'asc' 
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      } else {
+        const dateA = new Date(a.record_date).getTime();
+        const dateB = new Date(b.record_date).getTime();
+        return sortOrder === 'asc' 
+          ? dateA - dateB
+          : dateB - dateA;
+      }
+    });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterDate('');
+    setFilterStatus('');
+    setFilterSigned('');
+  };
+
+  const hasActiveFilters = searchTerm || filterDate || filterStatus || filterSigned;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -202,15 +270,141 @@ export function MedicalRecordsList() {
         </div>
       </div>
 
+      {/* Filtros e Busca */}
+      {records.length > 0 && (
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <div className="space-y-4">
+            {/* Barra de busca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Buscar por nome do paciente ou conteúdo do prontuário..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Data
+                </label>
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  <option value="">Todos</option>
+                  <option value="filled">Preenchido</option>
+                  <option value="empty">Aguardando Preenchimento</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Assinatura
+                </label>
+                <select
+                  value={filterSigned}
+                  onChange={(e) => setFilterSigned(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  <option value="">Todos</option>
+                  <option value="signed">Assinados</option>
+                  <option value="unsigned">Não Assinados</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Ordenar por
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'name')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  <option value="date">Data</option>
+                  <option value="name">Nome</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Ordem
+                </label>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm"
+                  title={sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+                >
+                  {sortOrder === 'asc' ? '↑ Crescente' : '↓ Decrescente'}
+                </button>
+              </div>
+            </div>
+
+            {/* Botão limpar filtros */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  {filteredRecords.length} de {records.length} prontuário(s)
+                </p>
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <X className="w-4 h-4" />
+                  Limpar Filtros
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {records.length === 0 ? (
         <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
           <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhum prontuário</h3>
           <p className="text-sm sm:text-base text-gray-600">Conclua atendimentos para criar prontuários</p>
         </div>
+      ) : filteredRecords.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
+          <Filter className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhum prontuário encontrado</h3>
+          <p className="text-sm sm:text-base text-gray-600 mb-4">Tente ajustar os filtros de busca</p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Limpar Filtros
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
-          {records.map((record) => (
+          {!hasActiveFilters && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              Mostrando {filteredRecords.length} prontuário(s)
+            </div>
+          )}
+          {filteredRecords.map((record) => (
             <div
               key={record.id}
               className={`bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition border-2 ${getStatusColor(record)}`}
@@ -224,23 +418,35 @@ export function MedicalRecordsList() {
                       {getStatusText(record)}
                     </span>
                   </div>
-                  <div className="text-xs sm:text-sm text-gray-600 space-y-1">
-                    <p>
-                      <strong>Data da Consulta:</strong>{' '}
-                      {record.appointment
-                        ? new Date(record.appointment.appointment_date).toLocaleString('pt-BR')
-                        : 'Não vinculado'}
-                    </p>
-                    {record.appointment && (
-                      <p>
-                        <strong>Tipo:</strong>{' '}
-                        <span className="capitalize">{record.appointment.service_type}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs sm:text-sm text-gray-600">
+                    <div>
+                      <span className="text-gray-600 block mb-1">Data da Consulta:</span>
+                      <p className="font-medium text-gray-800">
+                        {record.appointment
+                          ? new Date(record.appointment.appointment_date).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })
+                          : 'Não vinculado'}
                       </p>
+                    </div>
+                    {record.appointment && (
+                      <div>
+                        <span className="text-gray-600 block mb-1">Tipo:</span>
+                        <p className="font-medium text-gray-800 capitalize">{record.appointment.service_type}</p>
+                      </div>
                     )}
-                    <p>
-                      <strong>Criado em:</strong>{' '}
-                      {new Date(record.record_date).toLocaleString('pt-BR')}
-                    </p>
+                    <div>
+                      <span className="text-gray-600 block mb-1">Criado em:</span>
+                      <p className="font-medium text-gray-800">
+                        {new Date(record.record_date).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">

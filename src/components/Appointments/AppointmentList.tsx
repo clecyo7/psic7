@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { Calendar, Edit, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Edit, CheckCircle, XCircle, Search, Filter, X } from 'lucide-react';
 import { AppointmentForm } from './AppointmentForm';
 
 interface Appointment {
@@ -26,6 +26,14 @@ export function AppointmentList() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<string | undefined>();
+  
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterServiceType, setFilterServiceType] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'name'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     loadAppointments();
@@ -204,6 +212,74 @@ export function AppointmentList() {
     }
   };
 
+  // Filtrar e ordenar agendamentos
+  const filteredAppointments = appointments
+    .filter((appointment) => {
+      // Filtro por nome
+      if (searchTerm && !appointment.patient.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+
+      // Filtro por data
+      if (filterDate) {
+        const appointmentDate = new Date(appointment.appointment_date).toISOString().split('T')[0];
+        if (appointmentDate !== filterDate) {
+          return false;
+        }
+      }
+
+      // Filtro por status
+      if (filterStatus && appointment.status !== filterStatus) {
+        return false;
+      }
+
+      // Filtro por tipo de serviço
+      if (filterServiceType && appointment.service_type !== filterServiceType) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        const nameA = a.patient.name.toLowerCase();
+        const nameB = b.patient.name.toLowerCase();
+        return sortOrder === 'asc' 
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      } else {
+        // Ordenação por data: futuros mais próximos primeiro, depois passados mais recentes
+        const now = new Date().getTime();
+        const dateA = new Date(a.appointment_date).getTime();
+        const dateB = new Date(b.appointment_date).getTime();
+        const isAFuture = dateA >= now;
+        const isBFuture = dateB >= now;
+
+        // Se ambos são futuros ou ambos são passados
+        if (isAFuture === isBFuture) {
+          if (sortOrder === 'asc') {
+            // Crescente: mais próximo primeiro (para futuros) ou mais antigo primeiro (para passados)
+            return dateA - dateB;
+          } else {
+            // Decrescente: mais distante primeiro (para futuros) ou mais recente primeiro (para passados)
+            return dateB - dateA;
+          }
+        } else {
+          // Futuros sempre aparecem antes dos passados
+          return isAFuture ? -1 : 1;
+        }
+      }
+    });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterDate('');
+    setFilterStatus('');
+    setFilterServiceType('');
+  };
+
+  const hasActiveFilters = searchTerm || filterDate || filterStatus || filterServiceType;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -228,15 +304,137 @@ export function AppointmentList() {
         </button>
       </div>
 
+      {/* Filtros e Busca */}
+      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+        <div className="space-y-4">
+          {/* Barra de busca */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar por nome do paciente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Filtros */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Data
+              </label>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="">Todos</option>
+                <option value="pending_confirmation">Pré-Agendamento</option>
+                <option value="confirmed">Confirmado</option>
+                <option value="completed">Concluído</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Tipo de Serviço
+              </label>
+              <select
+                value={filterServiceType}
+                onChange={(e) => setFilterServiceType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="">Todos</option>
+                <option value="presencial">Presencial</option>
+                <option value="online">Online</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Ordenar por
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'name')}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  <option value="date">Data</option>
+                  <option value="name">Nome</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm"
+                  title={sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Botão limpar filtros */}
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                {filteredAppointments.length} de {appointments.length} agendamento(s)
+              </p>
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+                Limpar Filtros
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {appointments.length === 0 ? (
         <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
           <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhum agendamento</h3>
           <p className="text-sm sm:text-base text-gray-600">Comece criando um novo agendamento</p>
         </div>
+      ) : filteredAppointments.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
+          <Filter className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhum agendamento encontrado</h3>
+          <p className="text-sm sm:text-base text-gray-600 mb-4">Tente ajustar os filtros de busca</p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Limpar Filtros
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
-          {appointments.map((appointment) => (
+          {!hasActiveFilters && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              Mostrando {filteredAppointments.length} agendamento(s)
+            </div>
+          )}
+          {filteredAppointments.map((appointment) => (
             <div
               key={appointment.id}
               className="bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition"
@@ -251,24 +449,46 @@ export function AppointmentList() {
                       {getStatusText(appointment.status)}
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
                     <div>
-                      <span className="text-gray-600 block mb-1">Data e Hora:</span>
+                      <span className="text-gray-600 block mb-1">Data:</span>
                       <p className="font-medium text-gray-800">
-                        {new Date(appointment.appointment_date).toLocaleString('pt-BR')}
+                        {new Date(appointment.appointment_date).toLocaleDateString('pt-BR', {
+                          weekday: 'short',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 block mb-1">Hora:</span>
+                      <p className="font-medium text-gray-800">
+                        {new Date(appointment.appointment_date).toLocaleTimeString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </p>
                     </div>
                     <div>
                       <span className="text-gray-600 block mb-1">Tipo:</span>
                       <p className="font-medium text-gray-800 capitalize">{appointment.service_type}</p>
                     </div>
-                    {appointment.notes && (
-                      <div className="sm:col-span-2 lg:col-span-1">
-                        <span className="text-gray-600 block mb-1">Observações:</span>
-                        <p className="font-medium text-gray-800 break-words">{appointment.notes}</p>
+                    {appointment.confirmation && (
+                      <div>
+                        <span className="text-gray-600 block mb-1">Confirmação:</span>
+                        <p className={`font-medium ${appointment.confirmation.confirmed ? 'text-green-600' : 'text-yellow-600'}`}>
+                          {appointment.confirmation.confirmed ? 'Confirmado' : 'Pendente'}
+                        </p>
                       </div>
                     )}
                   </div>
+                  {appointment.notes && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <span className="text-gray-600 text-xs block mb-1">Observações:</span>
+                      <p className="text-sm text-gray-800 break-words">{appointment.notes}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
                   {appointment.status === 'pending_confirmation' && (
