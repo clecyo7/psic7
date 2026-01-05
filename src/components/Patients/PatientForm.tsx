@@ -251,10 +251,6 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
         throw new Error('Usuário não autenticado');
       }
 
-      // Preparar dados para salvar (converter tipos)
-      // Excluir appointment_count pois não é uma coluna do banco, apenas configuração temporária
-      const { appointment_count, ...formDataWithoutCount } = formData;
-      
       // Se não for super admin, sempre vincular ao próprio profissional
       let professionalId = formData.professional_id || null;
       if (!isAdmin && user) {
@@ -271,13 +267,28 @@ export function PatientForm({ patientId, onClose, onSave }: PatientFormProps) {
         }
       }
       
+      // Converter strings vazias para null em campos opcionais
+      // IMPORTANTE: A migração 20251223000000_make_patient_fields_optional.sql deve ser aplicada
+      // para que estes campos aceitem NULL. Caso contrário, usar valores padrão temporários.
       const patientData: any = {
-        ...formDataWithoutCount,
+        name: formData.name.trim(),
+        consultation_price: formData.consultation_price,
+        emergency_contact: formData.emergency_contact.trim(),
         user_id: user.id, // Sempre definir user_id para passar na política RLS
         professional_id: professionalId,
+        // Campos opcionais: converter para null (requer migração aplicada)
+        birth_date: formData.birth_date?.trim() || null,
+        document: formData.document?.trim() || null,
+        address: formData.address?.trim() || null,
+        email: formData.email?.trim() || null,
+        education_level: formData.education_level?.trim() || null,
+        service_type: formData.service_type || 'presencial',
         appointment_day_of_week: formData.appointment_day_of_week ? parseInt(formData.appointment_day_of_week) : null,
         appointment_frequency: formData.appointment_frequency || null,
         appointment_time: formData.appointment_time || null,
+        responsible_name: formData.responsible_name?.trim() || null,
+        responsible_document: formData.responsible_document?.trim() || null,
+        responsible_phone: formData.responsible_phone?.trim() || null,
       };
 
       if (patientId) {
