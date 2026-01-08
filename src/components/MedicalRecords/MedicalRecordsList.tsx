@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { FileText, Edit, Eye, X, FileDown, Printer, PenTool, CheckCircle2, Search, Filter } from 'lucide-react';
+import { FileText, Edit, Eye, X, FileDown, Printer, PenTool, CheckCircle2, Search, Filter, Trash2 } from 'lucide-react';
 import { generatePDFReport } from './PDFReportGenerator';
 
 interface MedicalRecord {
@@ -64,7 +64,9 @@ export function MedicalRecordsList() {
         query = query.eq('professional_id', user?.id);
       }
 
-      const { data, error } = await query.order('record_date', { ascending: false });
+      const { data, error } = await query
+        .is('deleted_at', null) // Filtrar apenas prontuários não excluídos
+        .order('record_date', { ascending: false });
 
       if (error) throw error;
       setRecords(data || []);
@@ -147,6 +149,7 @@ export function MedicalRecordsList() {
         `)
         .eq('patient_id', patientId)
         .eq('professional_id', user?.id)
+        .is('deleted_at', null) // Filtrar apenas prontuários não excluídos
         .order('record_date', { ascending: true });
 
       if (error) throw error;
@@ -154,6 +157,26 @@ export function MedicalRecordsList() {
       setViewingConsolidated(patientId);
     } catch (error: any) {
       alert(error.message);
+    }
+  };
+
+  const handleDelete = async (recordId: string) => {
+    if (!confirm('Deseja realmente excluir este prontuário? Esta ação não pode ser desfeita.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('medical_records')
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recordId);
+
+      if (error) throw error;
+      alert('Prontuário excluído com sucesso!');
+      loadRecords();
+    } catch (error: any) {
+      alert('Erro ao excluir prontuário: ' + error.message);
     }
   };
 
@@ -468,6 +491,14 @@ export function MedicalRecordsList() {
                       <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   )}
+                  <button
+                    onClick={() => handleDelete(record.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                    title="Excluir Prontuário"
+                    aria-label="Excluir Prontuário"
+                  >
+                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
                 </div>
               </div>
               {record.content.trim() !== '' && (

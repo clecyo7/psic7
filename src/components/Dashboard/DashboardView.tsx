@@ -45,12 +45,14 @@ export function DashboardView() {
       let todayApptsQuery = supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null) // Filtrar apenas agendamentos não excluídos
         .gte('appointment_date', today.toISOString())
         .lt('appointment_date', tomorrow.toISOString());
 
       let monthRevenueQuery = supabase
         .from('financial_transactions')
         .select('amount')
+        .is('deleted_at', null) // Filtrar apenas transações não excluídas
         .eq('status', 'received')
         .gte('paid_date', firstDayOfMonth.toISOString().split('T')[0])
         .lte('paid_date', lastDayOfMonth.toISOString().split('T')[0]);
@@ -58,16 +60,19 @@ export function DashboardView() {
       let pendingQuery = supabase
         .from('financial_transactions')
         .select('amount')
+        .is('deleted_at', null) // Filtrar apenas transações não excluídas
         .eq('status', 'pending');
 
       let confirmedQuery = supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null) // Filtrar apenas agendamentos não excluídos
         .eq('status', 'confirmed');
 
       let completedQuery = supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null) // Filtrar apenas agendamentos não excluídos
         .eq('status', 'completed');
 
       // Aplicar filtro de professional_id apenas se não for super admin

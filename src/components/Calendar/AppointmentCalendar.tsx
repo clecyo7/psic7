@@ -49,6 +49,7 @@ export function AppointmentCalendar() {
           *,
           patient:patients(id, name)
         `)
+        .is('deleted_at', null) // Filtrar apenas agendamentos não excluídos
         .gte('appointment_date', startDate.toISOString())
         .lte('appointment_date', endDate.toISOString())
         .order('appointment_date', { ascending: true });

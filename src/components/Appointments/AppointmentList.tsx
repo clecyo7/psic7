@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { Calendar, Edit, CheckCircle, XCircle, Search, Filter, X } from 'lucide-react';
+import { Calendar, Edit, CheckCircle, XCircle, Search, Filter, X, Trash2 } from 'lucide-react';
 import { AppointmentForm } from './AppointmentForm';
 
 interface Appointment {
@@ -56,6 +56,7 @@ export function AppointmentList() {
       }
 
       const { data, error } = await query
+        .is('deleted_at', null) // Filtrar apenas agendamentos não excluídos
         .or('is_active.eq.true,appointment_date.gte.' + new Date().toISOString())
         .order('appointment_date', { ascending: false });
 
@@ -89,7 +90,7 @@ export function AppointmentList() {
     setShowForm(true);
   };
 
-  const handleDelete = async (appointmentId: string) => {
+  const handleCancel = async (appointmentId: string) => {
     if (!confirm('Deseja realmente cancelar este agendamento?')) return;
 
     try {
@@ -102,6 +103,23 @@ export function AppointmentList() {
       loadAppointments();
     } catch (error: any) {
       alert(error.message);
+    }
+  };
+
+  const handleDelete = async (appointmentId: string) => {
+    if (!confirm('Deseja realmente excluir este agendamento? Esta ação não pode ser desfeita.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      alert('Agendamento excluído com sucesso!');
+      loadAppointments();
+    } catch (error: any) {
+      alert('Erro ao excluir agendamento: ' + error.message);
     }
   };
 
@@ -519,14 +537,22 @@ export function AppointmentList() {
                         <Edit className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(appointment.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        onClick={() => handleCancel(appointment.id)}
+                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition"
                         title="Cancelar"
                       >
                         <XCircle className="w-5 h-5" />
                       </button>
                     </>
                   )}
+                  {/* Botão de excluir disponível para todos os status */}
+                  <button
+                    onClick={() => handleDelete(appointment.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>

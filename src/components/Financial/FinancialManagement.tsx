@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { DollarSign, CheckCircle, Edit, X, Trash2, TrendingUp, Calendar } from 'lucide-react';
+import { DollarSign, CheckCircle, Edit, X, Trash2, TrendingUp, Calendar, XCircle } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -58,7 +58,9 @@ export function FinancialManagement() {
         query = query.eq('professional_id', user?.id);
       }
 
-      const { data, error } = await query.order('due_date', { ascending: false });
+      const { data, error } = await query
+        .is('deleted_at', null) // Filtrar apenas transações não excluídas
+        .order('due_date', { ascending: false });
 
       if (error) throw error;
       setTransactions(data || []);
@@ -224,6 +226,26 @@ export function FinancialManagement() {
       loadTransactions();
     } catch (error: any) {
       alert(error.message);
+    }
+  };
+
+  const handleDelete = async (transactionId: string) => {
+    if (!confirm('Deseja realmente excluir esta transação? Esta ação não pode ser desfeita.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('financial_transactions')
+        .update({
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transactionId);
+
+      if (error) throw error;
+      alert('Transação excluída com sucesso!');
+      loadTransactions();
+    } catch (error: any) {
+      alert('Erro ao excluir transação: ' + error.message);
     }
   };
 
@@ -447,10 +469,10 @@ export function FinancialManagement() {
                         </button>
                         <button
                           onClick={() => handleCancel(transaction.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                          className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition"
                           title="Cancelar"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <XCircle className="w-5 h-5" />
                         </button>
                       </>
                     )}
@@ -463,6 +485,14 @@ export function FinancialManagement() {
                         <Edit className="w-5 h-5" />
                       </button>
                     )}
+                    {/* Botão de excluir disponível para todos os status */}
+                    <button
+                      onClick={() => handleDelete(transaction.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               </div>
