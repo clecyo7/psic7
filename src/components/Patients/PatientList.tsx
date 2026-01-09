@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { UserPlus, Edit, Calendar, Eye, X, Power, PowerOff, Search, Trash2 } from 'lucide-react';
+import { UserPlus, Edit, Calendar, Eye, X, Power, PowerOff, Search, Trash2, ArrowLeft, FileText, DollarSign, BarChart3, User } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
 import { PatientForm } from './PatientForm';
 
 interface Patient {
@@ -29,6 +30,7 @@ interface PatientAppointment {
 
 export function PatientList() {
   const { user } = useAuth();
+  const { navigateToDashboard, currentView } = useNavigation();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -37,6 +39,9 @@ export function PatientList() {
   const [viewingAppointments, setViewingAppointments] = useState<string | null>(null);
   const [patientAppointments, setPatientAppointments] = useState<PatientAppointment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewingPatientDetails, setViewingPatientDetails] = useState<Patient | null>(null);
+  const [patientDetails, setPatientDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -154,6 +159,97 @@ export function PatientList() {
     }
   };
 
+  const handleViewPatientDetails = async (patient: Patient) => {
+    setViewingPatientDetails(patient);
+    setLoadingDetails(true);
+    
+    try {
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      const patientId = patient.id;
+
+      // Carregar todas as informações do paciente em paralelo
+      const [appointmentsRes, recordsRes, transactionsRes, reportsRes] = await Promise.all([
+        // Agendamentos
+        (async () => {
+          let query = supabase
+            .from('appointments')
+            .select('id, appointment_date, status, service_type, notes')
+            .eq('patient_id', patientId)
+            .is('deleted_at', null)
+            .order('appointment_date', { ascending: false })
+            .limit(50);
+          
+          if (!userIsSuperAdmin && user) {
+            query = query.eq('professional_id', user.id);
+          }
+          
+          return await query;
+        })(),
+        
+        // Prontuários
+        (async () => {
+          let query = supabase
+            .from('medical_records')
+            .select('id, record_date, content, signed, signed_at')
+            .eq('patient_id', patientId)
+            .is('deleted_at', null)
+            .order('record_date', { ascending: false })
+            .limit(50);
+          
+          if (!userIsSuperAdmin && user) {
+            query = query.eq('professional_id', user.id);
+          }
+          
+          return await query;
+        })(),
+        
+        // Transações financeiras
+        (async () => {
+          let query = supabase
+            .from('financial_transactions')
+            .select('id, amount, status, due_date, paid_date, description')
+            .eq('patient_id', patientId)
+            .is('deleted_at', null)
+            .order('due_date', { ascending: false })
+            .limit(50);
+          
+          if (!userIsSuperAdmin && user) {
+            query = query.eq('professional_id', user.id);
+          }
+          
+          return await query;
+        })(),
+        
+        // Relatórios
+        (async () => {
+          let query = supabase
+            .from('reports')
+            .select('id, title, report_date, report_type, content')
+            .eq('patient_id', patientId)
+            .order('report_date', { ascending: false })
+            .limit(50);
+          
+          if (!userIsSuperAdmin && user) {
+            query = query.eq('professional_id', user.id);
+          }
+          
+          return await query;
+        })(),
+      ]);
+
+      setPatientDetails({
+        appointments: appointmentsRes.data || [],
+        records: recordsRes.data || [],
+        transactions: transactionsRes.data || [],
+        reports: reportsRes.data || [],
+      });
+    } catch (error: any) {
+      alert('Erro ao carregar informações do paciente: ' + error.message);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
   const handleDelete = async (patientId: string) => {
     if (!confirm('Tem certeza que deseja excluir este paciente? Esta ação não pode ser desfeita.')) {
       return;
@@ -210,14 +306,25 @@ export function PatientList() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Pacientes</h1>
+        <div className="flex items-center gap-3">
+          {currentView !== 'dashboard' && (
+            <button
+              onClick={navigateToDashboard}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              title="Voltar para Dashboard"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Pacientes</h1>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
               {filteredPatients.length} {filteredPatients.length === 1 ? 'cadastrado' : 'cadastrados'}
             </span>
+            </div>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Gerencie seus pacientes</p>
           </div>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Gerencie seus pacientes</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -297,6 +404,13 @@ export function PatientList() {
                     <td className="py-3 px-4">
                       <div className="flex justify-end gap-2">
                         <button
+                          onClick={() => handleViewPatientDetails(patient)}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                          title="Ver informações completas"
+                        >
+                          <User className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleViewAppointments(patient.id)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
                           title="Ver agendamentos"
@@ -352,6 +466,239 @@ export function PatientList() {
           onClose={handleCloseForm}
           onSave={handleSave}
         />
+      )}
+
+      {/* Modal de Informações Completas do Paciente */}
+      {viewingPatientDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] my-4 overflow-y-auto">
+            <div className="sticky top-0 bg-white px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <User className="w-6 h-6 text-purple-600" />
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+                    {viewingPatientDetails.name}
+                  </h2>
+                  <p className="text-sm text-gray-600">Informações Completas</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setViewingPatientDetails(null);
+                  setPatientDetails(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+            </div>
+
+            {loadingDetails ? (
+              <div className="p-8 text-center">
+                <div className="text-gray-600">Carregando informações...</div>
+              </div>
+            ) : (
+              <div className="p-4 sm:p-6 space-y-6">
+                {/* Informações Básicas */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-bold text-gray-800 mb-3">Informações Básicas</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600 block mb-1">Data de Nascimento:</span>
+                      <p className="font-medium text-gray-800">
+                        {viewingPatientDetails.birth_date 
+                          ? new Date(viewingPatientDetails.birth_date).toLocaleDateString('pt-BR')
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 block mb-1">Documento:</span>
+                      <p className="font-medium text-gray-800">{viewingPatientDetails.document || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 block mb-1">E-mail:</span>
+                      <p className="font-medium text-gray-800">{viewingPatientDetails.email || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 block mb-1">Tipo de Atendimento:</span>
+                      <p className="font-medium text-gray-800 capitalize">{viewingPatientDetails.service_type || '-'}</p>
+                    </div>
+                    {isAdmin && viewingPatientDetails.professional && (
+                      <div>
+                        <span className="text-gray-600 block mb-1">Profissional:</span>
+                        <p className="font-medium text-gray-800">{viewingPatientDetails.professional.name}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Agendamentos */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-bold text-gray-800">
+                      Agendamentos ({patientDetails?.appointments?.length || 0})
+                    </h3>
+                  </div>
+                  {patientDetails?.appointments?.length > 0 ? (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {patientDetails.appointments.map((apt: any) => (
+                        <div key={apt.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-800">
+                                {new Date(apt.appointment_date).toLocaleDateString('pt-BR', {
+                                  weekday: 'long',
+                                  day: '2-digit',
+                                  month: 'long',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                              <p className="text-sm text-gray-600 capitalize">{apt.service_type}</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              apt.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              apt.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                              apt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {apt.status === 'completed' ? 'Concluído' :
+                               apt.status === 'confirmed' ? 'Confirmado' :
+                               apt.status === 'cancelled' ? 'Cancelado' :
+                               'Pendente'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">Nenhum agendamento encontrado</p>
+                  )}
+                </div>
+
+                {/* Prontuários */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-5 h-5 text-green-600" />
+                    <h3 className="text-lg font-bold text-gray-800">
+                      Prontuários ({patientDetails?.records?.length || 0})
+                    </h3>
+                  </div>
+                  {patientDetails?.records?.length > 0 ? (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {patientDetails.records.map((record: any) => (
+                        <div key={record.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-medium text-gray-800">
+                              {new Date(record.record_date).toLocaleDateString('pt-BR')}
+                            </p>
+                            {record.signed && (
+                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Assinado
+                              </span>
+                            )}
+                          </div>
+                          {record.content && (
+                            <p className="text-sm text-gray-600 line-clamp-2">{record.content}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">Nenhum prontuário encontrado</p>
+                  )}
+                </div>
+
+                {/* Transações Financeiras */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <DollarSign className="w-5 h-5 text-orange-600" />
+                    <h3 className="text-lg font-bold text-gray-800">
+                      Transações Financeiras ({patientDetails?.transactions?.length || 0})
+                    </h3>
+                  </div>
+                  {patientDetails?.transactions?.length > 0 ? (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {patientDetails.transactions.map((transaction: any) => (
+                        <div key={transaction.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-800">
+                                R$ {parseFloat(transaction.amount.toString()).toFixed(2)}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Vencimento: {new Date(transaction.due_date).toLocaleDateString('pt-BR')}
+                              </p>
+                              {transaction.description && (
+                                <p className="text-xs text-gray-500 mt-1">{transaction.description}</p>
+                              )}
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              transaction.status === 'received' ? 'bg-green-100 text-green-800' :
+                              transaction.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {transaction.status === 'received' ? 'Recebido' :
+                               transaction.status === 'cancelled' ? 'Cancelado' :
+                               'Pendente'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">Nenhuma transação encontrada</p>
+                  )}
+                </div>
+
+                {/* Relatórios */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <BarChart3 className="w-5 h-5 text-purple-600" />
+                    <h3 className="text-lg font-bold text-gray-800">
+                      Relatórios ({patientDetails?.reports?.length || 0})
+                    </h3>
+                  </div>
+                  {patientDetails?.reports?.length > 0 ? (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {patientDetails.reports.map((report: any) => (
+                        <div key={report.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-medium text-gray-800">{report.title}</p>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              report.report_type === 'geral' ? 'bg-blue-100 text-blue-800' :
+                              report.report_type === 'avaliacao' ? 'bg-purple-100 text-purple-800' :
+                              report.report_type === 'evolucao' ? 'bg-green-100 text-green-800' :
+                              report.report_type === 'alta' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {report.report_type === 'geral' ? 'Geral' :
+                               report.report_type === 'avaliacao' ? 'Avaliação' :
+                               report.report_type === 'evolucao' ? 'Evolução' :
+                               report.report_type === 'alta' ? 'Alta' :
+                               'Outro'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {new Date(report.report_date).toLocaleDateString('pt-BR')}
+                          </p>
+                          {report.content && (
+                            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{report.content}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">Nenhum relatório encontrado</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {viewingAppointments && (

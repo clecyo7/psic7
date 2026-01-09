@@ -3,7 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
 import { ProfessionalForm } from './ProfessionalForm';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, ArrowLeft } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
 
 interface Professional {
   id: string;
@@ -18,6 +19,7 @@ interface Professional {
 
 export function ProfessionalList() {
   const { user } = useAuth();
+  const { navigateToDashboard, currentView } = useNavigation();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -92,14 +94,25 @@ export function ProfessionalList() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Profissionais</h1>
+        <div className="flex items-center gap-3">
+          {currentView !== 'dashboard' && (
+            <button
+              onClick={navigateToDashboard}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              title="Voltar para Dashboard"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Profissionais</h1>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
               {filteredProfessionals.length} {filteredProfessionals.length === 1 ? 'cadastrado' : 'cadastrados'}
             </span>
+            </div>
+            <p className="text-gray-600 mt-1">Gerencie os profissionais do consultório</p>
           </div>
-          <p className="text-gray-600 mt-1">Gerencie os profissionais do consultório</p>
         </div>
         {isAdmin && (
           <button

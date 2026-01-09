@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { UserPlus, Users, Shield, X } from 'lucide-react';
+import { UserPlus, Users, Shield, X, ArrowLeft } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
 import { UserForm } from './UserForm';
 
 interface User {
@@ -22,6 +23,7 @@ interface Professional {
 
 export function AdminPanel() {
   const { user } = useAuth();
+  const { navigateToDashboard, currentView } = useNavigation();
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
@@ -164,12 +166,23 @@ export function AdminPanel() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center gap-3">
-            <Shield className="w-8 h-8 text-blue-600" />
+        <div className="flex items-center gap-3">
+          {currentView !== 'dashboard' && (
+            <button
+              onClick={navigateToDashboard}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              title="Voltar para Dashboard"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center gap-3">
+              <Shield className="w-8 h-8 text-blue-600" />
             Painel Administrativo
           </h1>
           <p className="text-gray-600 mt-1">Gerencie usuários e profissionais do sistema</p>
+          </div>
         </div>
         <button
           onClick={handleCreateUser}

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { Calendar, Edit, CheckCircle, XCircle, Search, Filter, X, Trash2 } from 'lucide-react';
+import { Calendar, Edit, CheckCircle, XCircle, Search, Filter, X, Trash2, Clock, User, MapPin, Video, ArrowLeft } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
 import { AppointmentForm } from './AppointmentForm';
 
 interface Appointment {
@@ -22,6 +23,7 @@ interface Appointment {
 
 export function AppointmentList() {
   const { user } = useAuth();
+  const { navigateToDashboard, currentView } = useNavigation();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -29,7 +31,8 @@ export function AppointmentList() {
   
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterServiceType, setFilterServiceType] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'name'>('date');
@@ -57,7 +60,6 @@ export function AppointmentList() {
 
       const { data, error } = await query
         .is('deleted_at', null) // Filtrar apenas agendamentos não excluídos
-        .or('is_active.eq.true,appointment_date.gte.' + new Date().toISOString())
         .order('appointment_date', { ascending: false });
 
       if (error) throw error;
@@ -238,11 +240,24 @@ export function AppointmentList() {
         return false;
       }
 
-      // Filtro por data
-      if (filterDate) {
-        const appointmentDate = new Date(appointment.appointment_date).toISOString().split('T')[0];
-        if (appointmentDate !== filterDate) {
-          return false;
+      // Filtro por intervalo de datas
+      if (filterDateFrom || filterDateTo) {
+        const appointmentDateTime = new Date(appointment.appointment_date).getTime();
+        
+        if (filterDateFrom) {
+          const fromDate = new Date(filterDateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          if (appointmentDateTime < fromDate.getTime()) {
+            return false;
+          }
+        }
+        
+        if (filterDateTo) {
+          const toDate = new Date(filterDateTo);
+          toDate.setHours(23, 59, 59, 999);
+          if (appointmentDateTime > toDate.getTime()) {
+            return false;
+          }
         }
       }
 
@@ -291,12 +306,64 @@ export function AppointmentList() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setFilterDate('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
     setFilterStatus('');
     setFilterServiceType('');
   };
 
-  const hasActiveFilters = searchTerm || filterDate || filterStatus || filterServiceType;
+  const hasActiveFilters = searchTerm || filterDateFrom || filterDateTo || filterStatus || filterServiceType;
+
+  // Agrupar agendamentos por período
+  const groupAppointmentsByPeriod = (appointments: Appointment[]) => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date(now);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    const groups = {
+      hoje: [] as Appointment[],
+      amanha: [] as Appointment[],
+      estaSemana: [] as Appointment[],
+      proximos: [] as Appointment[],
+      passados: [] as Appointment[],
+    };
+
+    appointments.forEach((appointment) => {
+      const aptDate = new Date(appointment.appointment_date);
+      aptDate.setHours(0, 0, 0, 0);
+      const aptTime = new Date(appointment.appointment_date).getTime();
+      const nowTime = new Date().getTime();
+
+      if (aptDate.getTime() === now.getTime()) {
+        groups.hoje.push(appointment);
+      } else if (aptDate.getTime() === tomorrow.getTime()) {
+        groups.amanha.push(appointment);
+      } else if (aptTime < nowTime) {
+        groups.passados.push(appointment);
+      } else if (aptDate <= nextWeek) {
+        groups.estaSemana.push(appointment);
+      } else {
+        groups.proximos.push(appointment);
+      }
+    });
+
+    return groups;
+  };
+
+  const groupedAppointments = groupAppointmentsByPeriod(filteredAppointments);
+
+  const isPast = (appointmentDate: string) => {
+    return new Date(appointmentDate).getTime() < new Date().getTime();
+  };
+
+  const isToday = (appointmentDate: string) => {
+    const aptDate = new Date(appointmentDate);
+    const today = new Date();
+    return aptDate.toDateString() === today.toDateString();
+  };
 
   if (loading) {
     return (
@@ -309,9 +376,20 @@ export function AppointmentList() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Agendamentos</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Gerencie seus agendamentos</p>
+        <div className="flex items-center gap-3">
+          {currentView !== 'dashboard' && (
+            <button
+              onClick={navigateToDashboard}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              title="Voltar para Dashboard"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Agendamentos</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Gerencie seus agendamentos</p>
+          </div>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -338,15 +416,28 @@ export function AppointmentList() {
           </div>
 
           {/* Filtros */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                Data
+                Data Inicial
               </label>
               <input
                 type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Data Final
+              </label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                min={filterDateFrom || undefined}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
             </div>
@@ -446,117 +537,188 @@ export function AppointmentList() {
           )}
         </div>
       ) : (
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-6">
           {!hasActiveFilters && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-              Mostrando {filteredAppointments.length} agendamento(s)
-            </div>
-          )}
-          {filteredAppointments.map((appointment) => (
-            <div
-              key={appointment.id}
-              className="bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition"
-            >
-              <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
-                <div className="flex-1 w-full sm:w-auto">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                    <h3 className="text-base sm:text-lg font-bold text-gray-800">
-                      {appointment.patient.name}
-                    </h3>
-                    <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium w-fit ${getStatusColor(appointment.status)}`}>
-                      {getStatusText(appointment.status)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
-                    <div>
-                      <span className="text-gray-600 block mb-1">Data:</span>
-                      <p className="font-medium text-gray-800">
-                        {new Date(appointment.appointment_date).toLocaleDateString('pt-BR', {
-                          weekday: 'short',
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600 block mb-1">Hora:</span>
-                      <p className="font-medium text-gray-800">
-                        {new Date(appointment.appointment_date).toLocaleTimeString('pt-BR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600 block mb-1">Tipo:</span>
-                      <p className="font-medium text-gray-800 capitalize">{appointment.service_type}</p>
-                    </div>
-                    {appointment.confirmation && (
-                      <div>
-                        <span className="text-gray-600 block mb-1">Confirmação:</span>
-                        <p className={`font-medium ${appointment.confirmation.confirmed ? 'text-green-600' : 'text-yellow-600'}`}>
-                          {appointment.confirmation.confirmed ? 'Confirmado' : 'Pendente'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  {appointment.notes && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <span className="text-gray-600 text-xs block mb-1">Observações:</span>
-                      <p className="text-sm text-gray-800 break-words">{appointment.notes}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-                  {appointment.status === 'pending_confirmation' && (
-                    <button
-                      onClick={() => handleConfirm(appointment.id)}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
-                      title="Confirmar"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                    </button>
-                  )}
-                  {appointment.status === 'confirmed' && (
-                    <button
-                      onClick={() => handleComplete(appointment.id)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                      title="Concluir"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                    </button>
-                  )}
-                  {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (
-                    <>
-                      <button
-                        onClick={() => handleEdit(appointment.id)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                        title="Editar"
-                      >
-                        <Edit className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleCancel(appointment.id)}
-                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition"
-                        title="Cancelar"
-                      >
-                        <XCircle className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
-                  {/* Botão de excluir disponível para todos os status */}
-                  <button
-                    onClick={() => handleDelete(appointment.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <p className="text-sm font-medium text-blue-800">
+                  Total: {filteredAppointments.length} agendamento(s)
+                </p>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-blue-700">
+                <span>Hoje: {groupedAppointments.hoje.length}</span>
+                <span>Amanhã: {groupedAppointments.amanha.length}</span>
+                <span>Esta Semana: {groupedAppointments.estaSemana.length}</span>
               </div>
             </div>
-          ))}
+          )}
+
+          {/* Agendamentos agrupados por período */}
+          {Object.entries(groupedAppointments).map(([period, periodAppointments]) => {
+            if (periodAppointments.length === 0) return null;
+
+            const periodTitles: Record<string, { title: string; color: string; bgColor: string }> = {
+              hoje: { title: 'Hoje', color: 'text-blue-700', bgColor: 'bg-blue-50 border-blue-200' },
+              amanha: { title: 'Amanhã', color: 'text-purple-700', bgColor: 'bg-purple-50 border-purple-200' },
+              estaSemana: { title: 'Esta Semana', color: 'text-indigo-700', bgColor: 'bg-indigo-50 border-indigo-200' },
+              proximos: { title: 'Próximos', color: 'text-gray-700', bgColor: 'bg-gray-50 border-gray-200' },
+              passados: { title: 'Passados', color: 'text-gray-600', bgColor: 'bg-gray-50 border-gray-200' },
+            };
+
+            const periodInfo = periodTitles[period] || { title: period, color: 'text-gray-700', bgColor: 'bg-gray-50 border-gray-200' };
+
+            return (
+              <div key={period} className="space-y-3">
+                <div className={`${periodInfo.bgColor} border rounded-lg px-4 py-2 flex items-center justify-between`}>
+                  <h3 className={`font-semibold ${periodInfo.color} flex items-center gap-2`}>
+                    <Calendar className="w-4 h-4" />
+                    {periodInfo.title}
+                  </h3>
+                  <span className={`text-sm font-medium ${periodInfo.color}`}>
+                    {periodAppointments.length} {periodAppointments.length === 1 ? 'agendamento' : 'agendamentos'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                  {periodAppointments.map((appointment) => {
+                    const appointmentDate = new Date(appointment.appointment_date);
+                    const isPastAppointment = isPast(appointment.appointment_date);
+                    const isTodayAppointment = isToday(appointment.appointment_date);
+
+                    return (
+                      <div
+                        key={appointment.id}
+                        className={`bg-white rounded-xl shadow-md p-4 sm:p-5 hover:shadow-lg transition border-l-4 ${
+                          isPastAppointment 
+                            ? 'border-l-gray-400 opacity-75' 
+                            : isTodayAppointment 
+                            ? 'border-l-blue-500 ring-2 ring-blue-100' 
+                            : 'border-l-green-500'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <User className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                              <h3 className="text-base sm:text-lg font-bold text-gray-800 truncate">
+                                {appointment.patient.name}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
+                                {getStatusText(appointment.status)}
+                              </span>
+                              {appointment.confirmation?.confirmed && (
+                                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Confirmado
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="font-medium">
+                              {appointmentDate.toLocaleDateString('pt-BR', {
+                                weekday: 'long',
+                                day: '2-digit',
+                                month: 'long',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="font-semibold text-gray-900">
+                              {appointmentDate.toLocaleTimeString('pt-BR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                            {isPastAppointment && (
+                              <span className="text-xs text-red-600 font-medium">(Passado)</span>
+                            )}
+                            {isTodayAppointment && !isPastAppointment && (
+                              <span className="text-xs text-blue-600 font-medium">(Hoje)</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            {appointment.service_type === 'online' ? (
+                              <Video className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                            ) : (
+                              <MapPin className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            )}
+                            <span className="capitalize font-medium">{appointment.service_type}</span>
+                          </div>
+                        </div>
+
+                        {appointment.notes && (
+                          <div className="mb-4 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1 font-medium">Observações:</p>
+                            <p className="text-sm text-gray-800 break-words">{appointment.notes}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-3 border-t border-gray-200">
+                          {appointment.status === 'pending_confirmation' && (
+                            <button
+                              onClick={() => handleConfirm(appointment.id)}
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                              title="Confirmar"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Confirmar
+                            </button>
+                          )}
+                          {appointment.status === 'confirmed' && (
+                            <button
+                              onClick={() => handleComplete(appointment.id)}
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                              title="Concluir"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Concluir
+                            </button>
+                          )}
+                          {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (
+                            <button
+                              onClick={() => handleEdit(appointment.id)}
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition text-sm font-medium"
+                              title="Editar"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Editar
+                            </button>
+                          )}
+                          {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (
+                            <button
+                              onClick={() => handleCancel(appointment.id)}
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition text-sm font-medium"
+                              title="Cancelar"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Cancelar
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(appointment.id)}
+                            className="flex items-center justify-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-sm font-medium"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { DollarSign, CheckCircle, Edit, X, Trash2, TrendingUp, Calendar, XCircle } from 'lucide-react';
+import { DollarSign, CheckCircle, Edit, X, Trash2, TrendingUp, Calendar, XCircle, ArrowLeft, Search } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
 
 interface Transaction {
   id: string;
@@ -27,6 +28,7 @@ interface RevenueEstimate {
 
 export function FinancialManagement() {
   const { user } = useAuth();
+  const { navigateToDashboard, currentView } = useNavigation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [revenueEstimate, setRevenueEstimate] = useState<RevenueEstimate | null>(null);
@@ -36,6 +38,14 @@ export function FinancialManagement() {
     due_date: '',
     status: '',
   });
+  
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'patient'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadTransactions();
@@ -267,13 +277,86 @@ export function FinancialManagement() {
     }
   };
 
-  const totalPending = transactions
+  // Filtrar e ordenar transações
+  const filteredTransactions = transactions
+    .filter((transaction) => {
+      // Filtro por busca (nome do paciente ou descrição)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const nameMatch = transaction.patient.name.toLowerCase().includes(searchLower);
+        const descMatch = transaction.description?.toLowerCase().includes(searchLower);
+        if (!nameMatch && !descMatch) {
+          return false;
+        }
+      }
+
+      // Filtro por status
+      if (filterStatus && transaction.status !== filterStatus) {
+        return false;
+      }
+
+      // Filtro por intervalo de datas (vencimento)
+      if (filterDateFrom || filterDateTo) {
+        const dueDate = new Date(transaction.due_date).getTime();
+        
+        if (filterDateFrom) {
+          const fromDate = new Date(filterDateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          if (dueDate < fromDate.getTime()) {
+            return false;
+          }
+        }
+        
+        if (filterDateTo) {
+          const toDate = new Date(filterDateTo);
+          toDate.setHours(23, 59, 59, 999);
+          if (dueDate > toDate.getTime()) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'patient') {
+        const nameA = a.patient.name.toLowerCase();
+        const nameB = b.patient.name.toLowerCase();
+        return sortOrder === 'asc' 
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      } else if (sortBy === 'amount') {
+        const amountA = parseFloat(a.amount.toString());
+        const amountB = parseFloat(b.amount.toString());
+        return sortOrder === 'asc' 
+          ? amountA - amountB
+          : amountB - amountA;
+      } else {
+        // Ordenação por data
+        const dateA = new Date(a.due_date).getTime();
+        const dateB = new Date(b.due_date).getTime();
+        return sortOrder === 'asc' 
+          ? dateA - dateB
+          : dateB - dateA;
+      }
+    });
+
+  const totalPending = filteredTransactions
     .filter(t => t.status === 'pending')
     .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
 
-  const totalReceived = transactions
+  const totalReceived = filteredTransactions
     .filter(t => t.status === 'received')
     .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+  };
+
+  const hasActiveFilters = searchTerm || filterStatus || filterDateFrom || filterDateTo;
 
   if (loading) {
     return (
@@ -285,9 +368,20 @@ export function FinancialManagement() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Financeiro</h1>
-        <p className="text-sm sm:text-base text-gray-600 mt-1">Controle financeiro do consultório</p>
+      <div className="flex items-center gap-3">
+        {currentView !== 'dashboard' && (
+          <button
+            onClick={navigateToDashboard}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            title="Voltar para Dashboard"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        )}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Financeiro</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Controle financeiro do consultório</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -399,20 +493,144 @@ export function FinancialManagement() {
         </div>
       )}
 
+      {/* Filtros */}
+      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+        <div className="space-y-4">
+          {/* Barra de busca */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar por paciente ou descrição..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Filtros */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="">Todos</option>
+                <option value="pending">Pendente</option>
+                <option value="received">Recebido</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Data Inicial
+              </label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Data Final
+              </label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                min={filterDateFrom || undefined}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Ordenar por
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'patient')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="date">Data</option>
+                <option value="amount">Valor</option>
+                <option value="patient">Paciente</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Ordem
+              </label>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm flex items-center justify-center gap-2"
+                title={sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'} {sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+              </button>
+            </div>
+          </div>
+
+          {/* Botão limpar filtros */}
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                {filteredTransactions.length} de {transactions.length} transação(ões)
+              </p>
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+                Limpar Filtros
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800">Contas a Receber</h2>
+          {!hasActiveFilters && (
+            <span className="text-sm text-gray-600">
+              {filteredTransactions.length} transação(ões)
+            </span>
+          )}
         </div>
 
-        {transactions.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <div className="p-8 sm:p-12 text-center">
             <DollarSign className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhuma transação</h3>
-            <p className="text-sm sm:text-base text-gray-600">As transações aparecerão aqui após concluir atendimentos</p>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
+              {hasActiveFilters ? 'Nenhuma transação encontrada' : 'Nenhuma transação'}
+            </h3>
+            <p className="text-sm sm:text-base text-gray-600">
+              {hasActiveFilters 
+                ? 'Tente ajustar os filtros de busca'
+                : 'As transações aparecerão aqui após concluir atendimentos'}
+            </p>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                Limpar Filtros
+              </button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {transactions.map((transaction) => (
+            {filteredTransactions.map((transaction) => (
               <div key={transaction.id} className="p-4 sm:p-6 hover:bg-gray-50 transition">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
                   <div className="flex-1 w-full sm:w-auto">

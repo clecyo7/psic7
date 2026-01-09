@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { FileText, Edit, Trash2, Plus, Eye, X, FileDown } from 'lucide-react';
+import { FileText, Edit, Trash2, Plus, Eye, X, FileDown, ArrowLeft, Search, Filter } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
 import { ReportForm } from './ReportForm';
 import { generateReportPDF } from './PDFReportGenerator';
 
@@ -22,6 +23,7 @@ interface Report {
 
 export function ReportsList() {
   const { user } = useAuth();
+  const { navigateToDashboard, currentView } = useNavigation();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -29,6 +31,11 @@ export function ReportsList() {
   const [viewingReport, setViewingReport] = useState<Report | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPatient, setFilterPatient] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'title' | 'patient'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadReports();
@@ -60,13 +67,7 @@ export function ReportsList() {
 
       if (error) throw error;
 
-      let filteredData = data || [];
-
-      if (filterPatient !== 'all') {
-        filteredData = filteredData.filter((r: any) => r.patient_id === filterPatient);
-      }
-
-      setReports(filteredData);
+      setReports(data || []);
     } catch (error) {
       // Erro ao carregar relatórios
     } finally {
@@ -193,6 +194,86 @@ export function ReportsList() {
     ).values()
   );
 
+  // Filtrar e ordenar relatórios
+  const filteredReports = reports
+    .filter((report) => {
+      // Filtro por busca (título, conteúdo ou paciente)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const titleMatch = report.title.toLowerCase().includes(searchLower);
+        const contentMatch = report.content.toLowerCase().includes(searchLower);
+        const patientMatch = report.patient.name.toLowerCase().includes(searchLower);
+        if (!titleMatch && !contentMatch && !patientMatch) {
+          return false;
+        }
+      }
+
+      // Filtro por tipo
+      if (filterType !== 'all' && report.report_type !== filterType) {
+        return false;
+      }
+
+      // Filtro por paciente
+      if (filterPatient !== 'all' && report.patient.id !== filterPatient) {
+        return false;
+      }
+
+      // Filtro por intervalo de datas
+      if (filterDateFrom || filterDateTo) {
+        const reportDate = new Date(report.report_date).getTime();
+        
+        if (filterDateFrom) {
+          const fromDate = new Date(filterDateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          if (reportDate < fromDate.getTime()) {
+            return false;
+          }
+        }
+        
+        if (filterDateTo) {
+          const toDate = new Date(filterDateTo);
+          toDate.setHours(23, 59, 59, 999);
+          if (reportDate > toDate.getTime()) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'title') {
+        const titleA = a.title.toLowerCase();
+        const titleB = b.title.toLowerCase();
+        return sortOrder === 'asc' 
+          ? titleA.localeCompare(titleB)
+          : titleB.localeCompare(titleA);
+      } else if (sortBy === 'patient') {
+        const nameA = a.patient.name.toLowerCase();
+        const nameB = b.patient.name.toLowerCase();
+        return sortOrder === 'asc' 
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      } else {
+        // Ordenação por data
+        const dateA = new Date(a.report_date).getTime();
+        const dateB = new Date(b.report_date).getTime();
+        return sortOrder === 'asc' 
+          ? dateA - dateB
+          : dateB - dateA;
+      }
+    });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterType('all');
+    setFilterPatient('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+  };
+
+  const hasActiveFilters = searchTerm || filterType !== 'all' || filterPatient !== 'all' || filterDateFrom || filterDateTo;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -204,9 +285,20 @@ export function ReportsList() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Relatórios</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Gerencie seus relatórios</p>
+        <div className="flex items-center gap-3">
+          {currentView !== 'dashboard' && (
+            <button
+              onClick={navigateToDashboard}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              title="Voltar para Dashboard"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Relatórios</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Gerencie seus relatórios</p>
+          </div>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -219,56 +311,148 @@ export function ReportsList() {
 
       {/* Filtros */}
       <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filtrar por Tipo
-            </label>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Todos os tipos</option>
-              <option value="geral">Geral</option>
-              <option value="avaliacao">Avaliação</option>
-              <option value="evolucao">Evolução</option>
-              <option value="alta">Alta</option>
-              <option value="outro">Outro</option>
-            </select>
+        <div className="space-y-4">
+          {/* Barra de busca */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar por título, conteúdo ou paciente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filtrar por Paciente
-            </label>
-            <select
-              value={filterPatient}
-              onChange={(e) => setFilterPatient(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Todos os pacientes</option>
-              {uniquePatients.map((patient) => (
-                <option key={patient.id} value={patient.id}>
-                  {patient.name}
-                </option>
-              ))}
-            </select>
+
+          {/* Filtros */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Tipo
+              </label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="all">Todos</option>
+                <option value="geral">Geral</option>
+                <option value="avaliacao">Avaliação</option>
+                <option value="evolucao">Evolução</option>
+                <option value="alta">Alta</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Paciente
+              </label>
+              <select
+                value={filterPatient}
+                onChange={(e) => setFilterPatient(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="all">Todos</option>
+                {uniquePatients.map((patient) => (
+                  <option key={patient.id} value={patient.id}>
+                    {patient.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Data Inicial
+              </label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Data Final
+              </label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                min={filterDateFrom || undefined}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Ordenar por
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'date' | 'title' | 'patient')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="date">Data</option>
+                <option value="title">Título</option>
+                <option value="patient">Paciente</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Ordem
+              </label>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm flex items-center justify-center gap-2"
+                title={sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'} {sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+              </button>
+            </div>
           </div>
+
+          {/* Botão limpar filtros */}
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                {filteredReports.length} de {reports.length} relatório(s)
+              </p>
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+                Limpar Filtros
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {reports.length === 0 ? (
+      {filteredReports.length === 0 ? (
         <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
           <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
-            Nenhum relatório encontrado
+            {hasActiveFilters ? 'Nenhum relatório encontrado' : 'Nenhum relatório'}
           </h3>
           <p className="text-sm sm:text-base text-gray-600 mb-4">
-            {filterType !== 'all' || filterPatient !== 'all'
+            {hasActiveFilters
               ? 'Nenhum relatório corresponde aos filtros selecionados'
               : 'Comece criando seu primeiro relatório'}
           </p>
-          {(filterType === 'all' && filterPatient === 'all') && (
+          {hasActiveFilters ? (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 transition text-sm sm:text-base"
+            >
+              Limpar Filtros
+            </button>
+          ) : (
             <button
               onClick={() => setShowForm(true)}
               className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 transition text-sm sm:text-base"
@@ -280,7 +464,12 @@ export function ReportsList() {
         </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
-          {reports.map((report) => (
+          {!hasActiveFilters && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              Mostrando {filteredReports.length} relatório(s)
+            </div>
+          )}
+          {filteredReports.map((report) => (
             <div
               key={report.id}
               className="bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition"

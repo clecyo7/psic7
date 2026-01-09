@@ -27,10 +27,12 @@ import {
   Settings,
 } from 'lucide-react';
 import { ProfileSettings } from './components/Profile/ProfileSettings';
+import { NavigationProvider } from './contexts/NavigationContext';
 
 function AppContent() {
   const { user, signOut, loading } = useAuth();
   const [activeView, setActiveView] = useState('dashboard');
+  const [viewKey, setViewKey] = useState(0); // Chave para forçar recarregamento
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
@@ -205,7 +207,12 @@ function AppContent() {
               <button
                 key={item.id}
                 onClick={() => {
-                  setActiveView(item.id);
+                  // Se clicar no mesmo item, forçar recarregamento
+                  if (activeView === item.id) {
+                    setViewKey(prev => prev + 1);
+                  } else {
+                    setActiveView(item.id);
+                  }
                   setSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition text-sm sm:text-base ${
@@ -250,7 +257,17 @@ function AppContent() {
       )}
 
       <main className="lg:ml-64 pt-14 sm:pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 xl:p-8">
-        {renderView()}
+        <NavigationProvider 
+          navigateToDashboard={() => {
+            setActiveView('dashboard');
+            setViewKey(prev => prev + 1);
+          }}
+          currentView={activeView}
+        >
+          <div key={`${activeView}-${viewKey}`}>
+            {renderView()}
+          </div>
+        </NavigationProvider>
       </main>
 
       {showProfileSettings && (

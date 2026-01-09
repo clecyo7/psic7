@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isSuperAdmin } from '../../lib/superAdmin';
-import { FileText, Edit, Eye, X, FileDown, Printer, PenTool, CheckCircle2, Search, Filter, Trash2 } from 'lucide-react';
+import { FileText, Edit, Eye, X, FileDown, Printer, PenTool, CheckCircle2, Search, Filter, Trash2, User, ArrowLeft, ArrowLeftCircle } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
 import { generatePDFReport } from './PDFReportGenerator';
 
 interface MedicalRecord {
@@ -23,9 +24,19 @@ interface MedicalRecord {
   } | null;
 }
 
+interface PatientWithRecords {
+  id: string;
+  name: string;
+  recordsCount: number;
+  lastRecordDate: string | null;
+}
+
 export function MedicalRecordsList() {
   const { user } = useAuth();
+  const { navigateToDashboard, currentView } = useNavigation();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
+  const [patients, setPatients] = useState<PatientWithRecords[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<PatientWithRecords | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -44,10 +55,71 @@ export function MedicalRecordsList() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    loadRecords();
+    loadPatients();
   }, [user]);
 
-  const loadRecords = async () => {
+  const loadPatients = async () => {
+    try {
+      setLoading(true);
+      const userIsSuperAdmin = await isSuperAdmin(user?.id);
+      
+      let query = supabase
+        .from('medical_records')
+        .select(`
+          patient_id,
+          patient:patients(id, name),
+          record_date,
+          deleted_at
+        `);
+
+      // Se não for super admin, filtrar apenas os próprios registros
+      if (!userIsSuperAdmin) {
+        query = query.eq('professional_id', user?.id);
+      }
+
+      const { data, error } = await query
+        .is('deleted_at', null)
+        .order('record_date', { ascending: false });
+
+      if (error) throw error;
+
+      // Agrupar por paciente
+      const patientsMap = new Map<string, PatientWithRecords>();
+      
+      (data || []).forEach((record: any) => {
+        const patientId = record.patient_id;
+        const patient = record.patient;
+        
+        if (!patientsMap.has(patientId)) {
+          patientsMap.set(patientId, {
+            id: patientId,
+            name: patient.name,
+            recordsCount: 0,
+            lastRecordDate: null,
+          });
+        }
+        
+        const patientData = patientsMap.get(patientId)!;
+        patientData.recordsCount++;
+        
+        if (!patientData.lastRecordDate || record.record_date > patientData.lastRecordDate) {
+          patientData.lastRecordDate = record.record_date;
+        }
+      });
+
+      const patientsList = Array.from(patientsMap.values()).sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+
+      setPatients(patientsList);
+    } catch (error) {
+      console.error('Erro ao carregar pacientes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRecords = async (patientId?: string) => {
     try {
       const userIsSuperAdmin = await isSuperAdmin(user?.id);
       
@@ -64,6 +136,11 @@ export function MedicalRecordsList() {
         query = query.eq('professional_id', user?.id);
       }
 
+      // Se um paciente foi selecionado, filtrar por paciente
+      if (patientId) {
+        query = query.eq('patient_id', patientId);
+      }
+
       const { data, error } = await query
         .is('deleted_at', null) // Filtrar apenas prontuários não excluídos
         .order('record_date', { ascending: false });
@@ -71,10 +148,22 @@ export function MedicalRecordsList() {
       if (error) throw error;
       setRecords(data || []);
     } catch (error) {
-      // Erro ao carregar prontuários
-    } finally {
-      setLoading(false);
+      console.error('Erro ao carregar prontuários:', error);
     }
+  };
+
+  const handlePatientSelect = async (patient: PatientWithRecords) => {
+    setSelectedPatient(patient);
+    await loadRecords(patient.id);
+  };
+
+  const handleBackToPatients = () => {
+    setSelectedPatient(null);
+    setRecords([]);
+    setSearchTerm('');
+    setFilterDate('');
+    setFilterStatus('');
+    setFilterSigned('');
   };
 
   const handleEdit = (record: MedicalRecord) => {
@@ -128,10 +217,18 @@ export function MedicalRecordsList() {
       setSignRecord(false);
       setProfessionalName('');
       setProfessionalRegistration('');
-      loadRecords();
+      
+      // Recarregar prontuários do paciente selecionado
+      if (selectedPatient) {
+        await loadRecords(selectedPatient.id);
+      } else {
+        await loadRecords();
+      }
 
       if (signRecord) {
         alert('Prontuário salvo e assinado com sucesso!');
+      } else {
+        alert('Prontuário salvo com sucesso!');
       }
     } catch (error: any) {
       alert(error.message);
@@ -174,7 +271,15 @@ export function MedicalRecordsList() {
 
       if (error) throw error;
       alert('Prontuário excluído com sucesso!');
-      loadRecords();
+      
+      // Recarregar prontuários do paciente selecionado
+      if (selectedPatient) {
+        await loadRecords(selectedPatient.id);
+        // Atualizar também a lista de pacientes para refletir a mudança
+        await loadPatients();
+      } else {
+        await loadRecords();
+      }
     } catch (error: any) {
       alert('Erro ao excluir prontuário: ' + error.message);
     }
@@ -219,12 +324,11 @@ export function MedicalRecordsList() {
   // Filtrar e ordenar prontuários
   const filteredRecords = records
     .filter((record) => {
-      // Filtro por nome do paciente ou conteúdo (busca no texto do prontuário)
+      // Filtro por conteúdo (busca no texto do prontuário)
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        const nameMatch = record.patient.name.toLowerCase().includes(searchLower);
         const contentMatch = record.content.toLowerCase().includes(searchLower);
-        if (!nameMatch && !contentMatch) {
+        if (!contentMatch) {
           return false;
         }
       }
@@ -284,12 +388,112 @@ export function MedicalRecordsList() {
     );
   }
 
+  // Se nenhum paciente foi selecionado, mostrar lista de pacientes
+  if (!selectedPatient) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {currentView !== 'dashboard' && (
+              <button
+                onClick={navigateToDashboard}
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                title="Voltar para Dashboard"
+              >
+                <ArrowLeftCircle className="w-5 h-5" />
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Prontuários</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">Selecione um paciente para visualizar os prontuários</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Busca de pacientes */}
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar paciente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {patients.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Nenhum paciente com prontuários</h3>
+              <p className="text-sm text-gray-600">Os prontuários aparecerão aqui após concluir atendimentos</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {patients
+                .filter(patient => 
+                  !searchTerm || patient.name.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map((patient) => (
+                  <button
+                    key={patient.id}
+                    onClick={() => handlePatientSelect(patient)}
+                    className="w-full bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-500 hover:bg-blue-50 transition text-left"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="bg-blue-100 p-2 rounded-lg">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg font-bold text-gray-800 truncate">
+                            {patient.name}
+                          </h3>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <FileText className="w-4 h-4" />
+                              {patient.recordsCount} {patient.recordsCount === 1 ? 'prontuário' : 'prontuários'}
+                            </span>
+                            {patient.lastRecordDate && (
+                              <span>
+                                Último: {new Date(patient.lastRecordDate).toLocaleDateString('pt-BR')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-gray-400">
+                        <Eye className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Se um paciente foi selecionado, mostrar os prontuários
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Prontuários</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Evolução e histórico dos pacientes</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleBackToPatients}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            title="Voltar para lista de pacientes"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Prontuários</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              Prontuários de <span className="font-semibold text-gray-800">{selectedPatient.name}</span>
+            </p>
+          </div>
         </div>
       </div>
 
@@ -302,7 +506,7 @@ export function MedicalRecordsList() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Buscar por nome do paciente ou conteúdo do prontuário..."
+                placeholder="Buscar por conteúdo do prontuário..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
